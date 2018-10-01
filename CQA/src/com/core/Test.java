@@ -62,7 +62,7 @@ public class Test {
 
 		AnswersComputer computer = new AnswersComputer(con);
 		if (query.isBoolean()) {
-			boolean answer = computer.computeBooleanAnswer("formula1.txt", "glucose");
+			boolean answer = computer.computeBooleanAnswer("formula1.txt", "lingeling");
 			System.out.println("Consistent answer is " + answer);
 		} else if (approach == 0) {
 			computer.eliminatePotentialAnswers("formula1.txt", f);
