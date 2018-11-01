@@ -79,10 +79,22 @@ public class Query {
 		return count;
 	}
 
+	/**
+	 * @param atomName
+	 * @return First atom of the matching name, otherwise null
+	 */
+	public Atom getAtomByName(String atomName) {
+		for (Atom atom : this.atoms) {
+			if (atom.getName().equalsIgnoreCase(atomName))
+				return atom;
+		}
+		return null;
+	}
+
 	public void print() {
 		System.out.println("Query:");
 		for (Atom a : getAtoms()) {
-			System.out.println(a.getName() + "(" + a.getAttributesCSV() + ")");
+			System.out.println(a.getName() + "(" + a.getAttributesCSV() + ")" + "\t keys: " + a.getKeyAttributesCSV());
 		}
 		System.out.println("Free variables:");
 		System.out.println(this.freeVars);

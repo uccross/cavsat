@@ -62,7 +62,7 @@ public class ProblemParser {
 			}
 		}
 	}
-
+	
 	public Schema parseSchema(String filePath) {
 		BufferedReader br = null;
 		try {

@@ -84,7 +84,7 @@ public class Encoder {
 			q += "WITNESSES_WITH_FACTID." + attr + "=" + "ADDITIONAL_ANSWERS." + attr + " AND ";
 		}
 		q = q.substring(0, q.length() - 5);
-		System.out.println(q);
+		//System.out.println(q);
 		CNFFormula formula = new CNFFormula();
 		Clause additionalPositiveClause = new Clause();
 		PreparedStatement psWitnessFacts;
@@ -132,7 +132,7 @@ public class Encoder {
 		String q = "CREATE TABLE ADDITIONAL_ANSWERS AS SELECT " + attrs + "," + totalFacts + "+"
 				+ " ROW_NUMBER() OVER (ORDER BY 1) AS FactID";
 		q += " FROM WITNESSES_WITH_FACTID GROUP BY " + attrs;
-		System.out.println(q);
+		//System.out.println(q);
 		try {
 			con.prepareStatement("DROP TABLE IF EXISTS ADDITIONAL_ANSWERS").execute();
 			PreparedStatement psAdditionalAnswers = con.prepareStatement(q);
@@ -151,7 +151,7 @@ public class Encoder {
 				String s = r.getAttributesFromIndexesCSV(r.getKeyAttributes(), "RELEVANT_" + r.getName());
 				String q = "SELECT (" + s + "), FactID FROM RELEVANT_" + r.getName() + " ORDER BY " + s;
 				psKeyEqualGroups = con.prepareStatement(q);
-				System.out.println(q);
+				//System.out.println(q);
 				ResultSet rsKeyEqualGroups = psKeyEqualGroups.executeQuery();
 				String curValue = "", receivedValue = "";
 				while (rsKeyEqualGroups.next()) {

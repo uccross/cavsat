@@ -7,6 +7,7 @@ public class Atom {
 	private String name;
 	private int atomIndex;
 	private List<String> attributes;
+	private List<String> keyAttributes;
 
 	@Override
 	public boolean equals(Object arg0) {
@@ -27,6 +28,7 @@ public class Atom {
 		super();
 		this.name = name;
 		this.attributes = new ArrayList<String>();
+		this.keyAttributes = new ArrayList<String>();
 	}
 
 	public String getName() {
@@ -57,11 +59,52 @@ public class Atom {
 		this.attributes.add(attribute);
 	}
 
+	public List<String> getKeyAttributes() {
+		return keyAttributes;
+	}
+
+	public void setKeyAttributes(List<String> keyAttributes) {
+		this.keyAttributes = keyAttributes;
+	}
+
+	public void addKeyAttribute(String attribute) {
+		this.keyAttributes.add(attribute);
+	}
+
+	public String getAttributeByIndex(int index) {
+		return this.attributes.get(index - 1); // List indexes start from 0
+	}
+
 	public String getAttributesCSV() {
 		String result = "";
 		for (String attribute : getAttributes()) {
 			result += attribute + ",";
 		}
-		return result.substring(0, result.length() - 1);
+		if (!result.isEmpty())
+			result = result.substring(0, result.length() - 1);
+		return result;
+	}
+
+	public String getKeyAttributesCSV() {
+		String result = "";
+		for (String attribute : getKeyAttributes()) {
+			result += attribute + ",";
+		}
+		if (!result.isEmpty())
+			result = result.substring(0, result.length() - 1);
+		return result;
+	}
+
+	public String getNameWithAttributes() {
+		return this.name + "(" + getAttributesCSV() + ")";
+	}
+
+	public List<String> getSharedVars(Atom atom) {
+		List<String> sharedVars = new ArrayList<String>();
+		for (String var : this.attributes) {
+			if (atom.getAttributes().contains(var))
+				sharedVars.add(var);
+		}
+		return sharedVars;
 	}
 }

@@ -56,9 +56,9 @@ public class Preprocessor {
 			q += "TRUE ";
 		} else {
 			for (String var : query.getFreeVars()) {
-				System.out.println(var);
+				//System.out.println(var);
 				String attr = getAttributeFromQueryVar(null, var);
-				System.out.println(attr);
+				//System.out.println(attr);
 				q += attr + " AS " + attr.replaceAll("\\.", "_") + ",";
 			}
 			q = q.substring(0, q.length() - 1);
@@ -110,7 +110,7 @@ public class Preprocessor {
 			}
 			q = q.substring(0, q.length() - 1);
 		}
-		System.out.println(q);
+		//System.out.println(q);
 		try {
 			//con.prepareStatement("DROP TABLE IF EXISTS ANS_FROM_CONS CASCADE").execute();
 			PreparedStatement psAnsFromCons = con.prepareStatement(q);
@@ -204,7 +204,7 @@ public class Preprocessor {
 
 		try {
 			//con.prepareStatement("DROP TABLE IF EXISTS " + relationName + " CASCADE").execute();
-			System.out.println(q);
+			//System.out.println(q);
 			PreparedStatement psWitnesses = con.prepareStatement(q);
 			psWitnesses.execute();
 		} catch (SQLException e) {
@@ -237,7 +237,7 @@ public class Preprocessor {
 			if (q.endsWith(" AND "))
 				q = q.substring(0, q.length() - 5);
 			q += " GROUP BY " + r.getAllAttributesCSV(r.getName());
-			System.out.println(q);
+			//System.out.println(q);
 			try {
 				//con.prepareStatement("DROP TABLE IF EXISTS RELEVANT_" + r.getName() + " CASCADE").execute();
 				PreparedStatement psRelevant = con.prepareStatement(q);
