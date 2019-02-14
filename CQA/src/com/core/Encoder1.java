@@ -178,7 +178,7 @@ public class Encoder1 {
 				flag = false;
 				for (Atom atom : query.getAtoms()) {
 					attributeIndex = 0;
-					for (String attribute : atom.getAttributes()) {
+					for (String attribute : atom.getVars()) {
 						attributeIndex++;
 						if (attribute.equals(var)) {
 							selectClause += atom.getName() + atom.getAtomIndex() + "."
@@ -197,8 +197,8 @@ public class Encoder1 {
 		for (Atom atom1 : query.getAtoms()) {
 			for (Atom atom2 : query.getAtoms()) {
 				if (!(atom1.equals(atom2))) {
-					String[] atom1attr = atom1.getAttributesCSV().split(",");
-					String[] atom2attr = atom2.getAttributesCSV().split(",");
+					String[] atom1attr = atom1.getVarsCSV().split(",");
+					String[] atom2attr = atom2.getVarsCSV().split(",");
 					int index1 = 0, index2 = 0;
 					for (String attr1 : atom1attr) {
 						index1++;

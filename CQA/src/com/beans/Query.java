@@ -6,12 +6,12 @@ import java.util.List;
 import java.util.Set;
 
 public class Query {
-	private Set<Atom> atoms;
+	private List<Atom> atoms;
 	private List<String> freeVars;
 
 	public Query() {
 		super();
-		this.atoms = new HashSet<Atom>();
+		this.atoms = new ArrayList<Atom>();
 		this.freeVars = new ArrayList<String>();
 	}
 
@@ -23,11 +23,11 @@ public class Query {
 		return this.freeVars.size() == 0;
 	}
 
-	public Set<Atom> getAtoms() {
+	public List<Atom> getAtoms() {
 		return atoms;
 	}
 
-	public void setAtoms(Set<Atom> atoms) {
+	public void setAtoms(List<Atom> atoms) {
 		this.atoms = atoms;
 	}
 
@@ -37,6 +37,14 @@ public class Query {
 
 	public List<String> getFreeVars() {
 		return freeVars;
+	}
+
+	public Atom getAtomByPosition(int index) {
+		return this.atoms.get(index);
+	}
+
+	public int getPositionOfAtom(Atom atom) {
+		return this.atoms.indexOf(atom);
 	}
 
 	public String getFreeVarsCSV() {
@@ -70,6 +78,25 @@ public class Query {
 		return relationNames;
 	}
 
+	public List<String> getAllVars() {
+		List<String> allVars = new ArrayList<String>();
+		for (Atom atom : this.atoms) {
+			for (String var : atom.getVars()) {
+				if (!allVars.contains(var))
+					allVars.add(var);
+			}
+		}
+		return allVars;
+	}
+
+	public String getVarByPosition(int index) {
+		return getAllVars().get(index);
+	}
+
+	public int getPositionOfVar(String var) {
+		return getAllVars().indexOf(var);
+	}
+
 	public int getAtomsCountByName(String name) {
 		int count = 0;
 		for (Atom a : getAtoms()) {
@@ -94,7 +121,8 @@ public class Query {
 	public void print() {
 		System.out.println("Query:");
 		for (Atom a : getAtoms()) {
-			System.out.println(a.getName() + "(" + a.getAttributesCSV() + ")" + "\t keys: " + a.getKeyAttributesCSV());
+			System.out.println(a.getName() + "(" + a.getVarsCSV() + ")" + "\t keys: " + a.getKeyVars() + "\t non-keys: "
+					+ a.getNonKeyVars());
 		}
 		System.out.println("Free variables:");
 		System.out.println(this.freeVars);

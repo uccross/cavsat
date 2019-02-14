@@ -1,23 +1,28 @@
 package com.util;
 
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.List;
+
+import com.beans.Atom;
+import com.beans.Query;
+import com.beans.Schema;
+import com.querypreprocessor.AttackGraphBuilder;
+import com.querypreprocessor.CertainRewriter;
 
 public class Test {
 
 	public static void main(String[] args) throws IOException {
-		Charset charset = Charset.forName("ISO-8859-1");
-		List<String> lines = Files.readAllLines(Paths.get("C:/Users/Akhil/formula1.txt"), charset);
-		lines.set(0, "Akhil");
-		StringBuilder builder = new StringBuilder();
-		for (String line : lines) {
-			if (line.equals("Akhil"))
-				System.out.println("Line is Akhil");
-			builder.append(line + System.lineSeparator());
-		}
-		Files.write(Paths.get("C:/Users/Akhil/formula2.txt"), builder.toString().getBytes());
+		ProblemParser pp = new ProblemParser();
+		List<Query> uCQ = pp
+				.parseUCQ("C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\lingeling-master\\toyquery.txt");
+		Schema schema = pp
+				.parseSchema("C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\lingeling-master\\schema.txt");
+		AttackGraphBuilder builder = new AttackGraphBuilder(uCQ.get(0));
+		System.out.println(builder.isQueryFO());
+		List<Atom> list = builder.topologicalSort();
+		System.out.println("Topological sorting: " + list);
+		CertainRewriter certainRewriter = new CertainRewriter();
+		uCQ.get(0).setAtoms(list);
+		certainRewriter.doEverything(uCQ.get(0), schema);
 	}
 }

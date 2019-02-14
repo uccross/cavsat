@@ -3,27 +3,25 @@ package com.beans;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 public class CNFFormula {
-	private List<Clause> clauses;
+	private Set<Clause> clauses;
 	private Set<String> clauseStrings;
 	private int noOfVariables;
 	private int approach;
 
 	public CNFFormula() {
-		this.clauses = new ArrayList<Clause>();
+		this.clauses = new HashSet<Clause>();
 		this.clauseStrings = new HashSet<String>();
 	}
 
-	public List<Clause> getClauses() {
+	public Set<Clause> getClauses() {
 		return clauses;
 	}
 
-	public void setClauses(List<Clause> clauses) {
+	public void setClauses(Set<Clause> clauses) {
 		this.clauses = clauses;
 	}
 
@@ -64,7 +62,7 @@ public class CNFFormula {
 
 	public CNFFormula combine(CNFFormula f2) {
 		this.clauses.addAll(f2.getClauses());
-		this.noOfVariables += f2.getNoOfVariables();
+		//this.noOfVariables += f2.getNoOfVariables();
 		return this;
 	}
 
@@ -102,7 +100,7 @@ public class CNFFormula {
 	}
 
 	public void addClause(Clause clause) {
-		if (null != clause && !clause.isEmpty() && !this.clauses.contains(clause))
+		if (null != clause && !clause.isEmpty())
 			this.clauses.add(clause);
 	}
 

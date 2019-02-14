@@ -5,10 +5,12 @@ import java.util.Set;
 
 public class Schema {
 	Set<Relation> relations;
+	Set<DenialConstraint> constraints;
 
 	public Schema() {
 		super();
 		this.relations = new HashSet<Relation>();
+		this.constraints = new HashSet<DenialConstraint>();
 	}
 
 	public Set<Relation> getRelations() {
@@ -17,6 +19,14 @@ public class Schema {
 
 	public void setRelations(Set<Relation> relations) {
 		this.relations = relations;
+	}
+
+	public Set<DenialConstraint> getConstraints() {
+		return constraints;
+	}
+
+	public void setConstraints(Set<DenialConstraint> constraints) {
+		this.constraints = constraints;
 	}
 
 	public String getAttributeNameByIndex(String relationName, int index) {
@@ -53,6 +63,9 @@ public class Schema {
 		System.out.println("Schema:");
 		for (Relation r : this.relations) {
 			r.print();
+		}
+		for(DenialConstraint constraint:this.constraints) {
+			System.out.println(constraint);
 		}
 		System.out.println("-------------------------------------------------------------");
 	}

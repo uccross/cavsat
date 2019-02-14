@@ -186,16 +186,16 @@ public class Encoder {
 			for (Relation r : relations) {
 				if (r.getName().equalsIgnoreCase(atom.getName())) {
 					return atom.getName() + atom.getAtomIndex() + "_"
-							+ r.getAttributes().get(atom.getAttributes().indexOf(var));
+							+ r.getAttributes().get(atom.getVars().indexOf(var));
 				}
 			}
 		} else {
 			for (Atom curAtom : query.getAtoms()) {
-				if (curAtom.getAttributes().indexOf(var) != -1) {
+				if (curAtom.getVars().indexOf(var) != -1) {
 					for (Relation r : relations) {
 						if (r.getName().equalsIgnoreCase(curAtom.getName())) {
 							return curAtom.getName() + curAtom.getAtomIndex() + "_"
-									+ r.getAttributes().get(curAtom.getAttributes().indexOf(var));
+									+ r.getAttributes().get(curAtom.getVars().indexOf(var));
 						}
 					}
 				}

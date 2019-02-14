@@ -14,6 +14,7 @@ import java.util.Set;
 
 import com.beans.CNFFormula;
 import com.beans.Clause;
+import com.beans.Stats;
 import com.util.ExecCommand;
 
 public class AnswersComputer {
@@ -24,12 +25,12 @@ public class AnswersComputer {
 		this.con = con;
 	}
 
-	public boolean computeBooleanAnswer(String filename, String solvername) {
+	public Stats computeBooleanAnswer(String filename, String solvername) {
 		ExecCommand command = new ExecCommand();
 		if (solvername.equalsIgnoreCase("MaxHS")) {
 			command.executeCommand(new String[] { "./maxhs", filename }, "output.txt");
 		} else if (solvername.equalsIgnoreCase("Glucose")) {
-			command.executeCommand(new String[] { "./glucose", filename, "output.txt" }, null);
+			command.executeCommand(new String[] { "./glucose", filename }, "output.txt");
 		} else if (solvername.equalsIgnoreCase("lingeling")) {
 			command.executeCommand(new String[] { "./lingeling", filename }, "output.txt");
 		}
@@ -53,7 +54,7 @@ public class AnswersComputer {
 				command.executeCommand(new String[] { "./lingeling", filename }, "output.txt");
 			}
 			d += (System.currentTimeMillis() - start);
-			if (!command.isSAT("output.txt", solvername))
+			if (!command.isSAT("output.txt", solvername).isSolved())
 				break;
 			start = System.currentTimeMillis();
 			Set<Integer> inconsistentFactIDs = findLiteralsSetToOne("output.txt", solvername);
@@ -62,14 +63,14 @@ public class AnswersComputer {
 			clauseChanged = removeLiteralsFromExtraClause(filename, inconsistentFactIDs);
 			b += (System.currentTimeMillis() - start);
 			start = System.currentTimeMillis();
-			//deleteInconsistentAdditionalAnswers(inconsistentFactIDs);
+			// deleteInconsistentAdditionalAnswers(inconsistentFactIDs);
 			c += (System.currentTimeMillis() - start);
 		}
 		System.out.println(a + " " + b + " " + c);
 		System.out.println("SAT Iterations: " + i);
 		System.out.println("Actual solving time: " + d);
 		System.out.println("Dimacs file editing time: " + (a + b + c));
-		//buildFinalAnswers();
+		// buildFinalAnswers();
 	}
 
 	private void buildFinalAnswers() {

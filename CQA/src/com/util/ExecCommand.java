@@ -5,6 +5,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 
+import com.beans.Stats;
+
 public class ExecCommand {
 
 	public static void main(String[] args) {
@@ -71,28 +73,38 @@ public class ExecCommand {
 		}
 	}
 
-	public boolean isSAT(String filename, String solvername) {
+	public Stats isSAT(String filename, String solvername) {
+		Stats stats = new Stats();
 		try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
 			String sCurrentLine;
 			if (solvername.equalsIgnoreCase("MaxHS")) {
 				while ((sCurrentLine = br.readLine()) != null) {
 					if (sCurrentLine.startsWith("c Solved: Number")) {
-						return Integer.parseInt(sCurrentLine.split("=")[1].replaceAll(" ", "")) == 0;
+						stats.setSolved(true);
+						return stats;
+						// return Integer.parseInt(sCurrentLine.split("=")[1].replaceAll(" ", "")) == 0;
 					}
 				}
-			} else if (solvername.equalsIgnoreCase("Glucose")) {
-				return !br.readLine().equalsIgnoreCase("UNSAT");
-			} else if (solvername.equalsIgnoreCase("Lingeling")) {
+			} else if (solvername.equalsIgnoreCase("Glucose") || solvername.equalsIgnoreCase("Lingeling")) {
 				while ((sCurrentLine = br.readLine()) != null) {
 					if (sCurrentLine.startsWith("s SATISFIABLE")) {
-						return true;
+						stats.setSolved(true);
+					} else if (sCurrentLine.startsWith("c conflicts")) {
+						stats.setConflicts(Long.parseLong(sCurrentLine.split(":")[1].trim().split(" ")[0]));
+					} else if (sCurrentLine.startsWith("c decisions")) {
+						stats.setDecisions(Long.parseLong(sCurrentLine.split(":")[1].trim().split(" ")[0]));
+					} else if (sCurrentLine.startsWith("c propagations")) {
+						stats.setPropagations(Long.parseLong(sCurrentLine.split(":")[1].trim().split(" ")[0]));
+					} else if (sCurrentLine.startsWith("c CPU time")) {
+						stats.setTime(Double.parseDouble(sCurrentLine.split(":")[1].trim().split(" ")[0]));
 					}
 				}
+				return stats;
 			}
-			return false;
+			return stats;
 		} catch (IOException e) {
 			e.printStackTrace();
-			return false;
+			return stats;
 		}
 	}
 }

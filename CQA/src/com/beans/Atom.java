@@ -6,17 +6,23 @@ import java.util.List;
 public class Atom {
 	private String name;
 	private int atomIndex;
-	private List<String> attributes;
-	private List<String> keyAttributes;
+	private List<String> vars;
+	private List<String> constants;
+	private List<String> keyVars;
+	private List<String> nonKeyVars;
 
 	@Override
 	public boolean equals(Object arg0) {
-		// TODO Auto-generated method stub
 		if (!(arg0 instanceof Atom)) {
 			return false;
 		} else {
-			return ((Atom) arg0).getName().equals(this.name) && ((Atom) arg0).getAttributes().equals(this.attributes);
+			return ((Atom) arg0).getName().equals(this.name) && ((Atom) arg0).getVars().equals(this.vars);
 		}
+	}
+
+	@Override
+	public String toString() {
+		return this.name;
 	}
 
 	@Override
@@ -27,8 +33,10 @@ public class Atom {
 	public Atom(String name) {
 		super();
 		this.name = name;
-		this.attributes = new ArrayList<String>();
-		this.keyAttributes = new ArrayList<String>();
+		this.vars = new ArrayList<String>();
+		this.constants = new ArrayList<String>();
+		this.keyVars = new ArrayList<String>();
+		this.nonKeyVars = new ArrayList<String>();
 	}
 
 	public String getName() {
@@ -47,62 +55,82 @@ public class Atom {
 		this.atomIndex = atomIndex;
 	}
 
-	public List<String> getAttributes() {
-		return attributes;
+	public List<String> getVars() {
+		return vars;
 	}
 
-	public void setAttributes(List<String> attributes) {
-		this.attributes = attributes;
+	public void setVars(List<String> vars) {
+		this.vars = vars;
 	}
 
-	public void addAttribute(String attribute) {
-		this.attributes.add(attribute);
+	public void addVar(String var) {
+		this.vars.add(var);
 	}
 
-	public List<String> getKeyAttributes() {
-		return keyAttributes;
+	public List<String> getConstants() {
+		return constants;
 	}
 
-	public void setKeyAttributes(List<String> keyAttributes) {
-		this.keyAttributes = keyAttributes;
+	public void setConstants(List<String> constants) {
+		this.constants = constants;
 	}
 
-	public void addKeyAttribute(String attribute) {
-		this.keyAttributes.add(attribute);
+	public List<String> getKeyVars() {
+		return keyVars;
 	}
 
-	public String getAttributeByIndex(int index) {
-		return this.attributes.get(index - 1); // List indexes start from 0
+	public void setNonKeyVars(List<String> nonKeyVars) {
+		this.nonKeyVars = nonKeyVars;
 	}
 
-	public String getAttributesCSV() {
+	public List<String> getNonKeyVars() {
+		return nonKeyVars;
+	}
+
+	public void setKeyVars(List<String> keyVars) {
+		this.keyVars = keyVars;
+	}
+
+	public void addKeyVar(String var) {
+		this.keyVars.add(var);
+	}
+
+	public void addNonKeyVar(String var) {
+		this.nonKeyVars.add(var);
+	}
+
+	public String getVarByIndex(int index) {
+		return this.vars.get(index - 1); // List indexes start from 0
+	}
+
+	public String getVarsCSV() {
 		String result = "";
-		for (String attribute : getAttributes()) {
-			result += attribute + ",";
+		for (String var : getVars()) {
+			result += var + ",";
 		}
 		if (!result.isEmpty())
 			result = result.substring(0, result.length() - 1);
 		return result;
 	}
 
-	public String getKeyAttributesCSV() {
+	public String getKeyVarsCSV() {
 		String result = "";
-		for (String attribute : getKeyAttributes()) {
-			result += attribute + ",";
+		for (String var : getKeyVars()) {
+			result += var + ",";
 		}
 		if (!result.isEmpty())
 			result = result.substring(0, result.length() - 1);
 		return result;
 	}
 
-	public String getNameWithAttributes() {
-		return this.name + "(" + getAttributesCSV() + ")";
+	public String getNameWithVars() {
+		return this.name + "(" + getVarsCSV() + ")";
 	}
 
 	public List<String> getSharedVars(Atom atom) {
 		List<String> sharedVars = new ArrayList<String>();
-		for (String var : this.attributes) {
-			if (atom.getAttributes().contains(var))
+		for (String var : this.vars) {
+			if (atom.getVars().contains(var))
 				sharedVars.add(var);
 		}
 		return sharedVars;

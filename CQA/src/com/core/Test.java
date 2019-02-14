@@ -5,6 +5,7 @@ import java.sql.Connection;
 import com.beans.CNFFormula;
 import com.beans.Query;
 import com.beans.Schema;
+import com.beans.Stats;
 import com.util.DBEnvironment;
 import com.util.ProblemParser;
 
@@ -62,12 +63,12 @@ public class Test {
 
 		AnswersComputer computer = new AnswersComputer(con);
 		if (query.isBoolean()) {
-			boolean answer = computer.computeBooleanAnswer("formula1.txt", "lingeling");
-			System.out.println("Consistent answer is " + answer);
+			Stats answer = computer.computeBooleanAnswer("formula1.txt", "glucose");
+			System.out.println("Consistent answer is " + !answer.isSolved());
 		} else if (approach == 0) {
 			computer.eliminatePotentialAnswers("formula1.txt", f);
 		} else {
-			computer.computeNonBooleanAnswer("formula1.txt", "lingeling");
+			computer.computeNonBooleanAnswer("formula1.txt", "glucose");
 		}
 		System.out.println("Solver took " + timeElapsed() + "ms");
 		System.out.println("Total time: " + (System.currentTimeMillis() - constantStart) + "ms");

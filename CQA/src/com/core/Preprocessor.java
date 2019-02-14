@@ -46,7 +46,7 @@ public class Preprocessor {
 						+ r.getAttributesFromIndexesCSV(r.getKeyAttributes(), null) + ")").execute();
 			}
 		} catch (SQLException e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 	}
 
@@ -74,8 +74,8 @@ public class Preprocessor {
 			for (Atom second : query.getAtoms()) {
 				if (first.equals(second))
 					continue;
-				for (String attr1 : first.getAttributes()) {
-					for (String attr2 : second.getAttributes()) {
+				for (String attr1 : first.getVars()) {
+					for (String attr2 : second.getVars()) {
 						if (attr1.equals(attr2)) {
 							q += getAttributeFromQueryVar(first, attr1) + "=" + getAttributeFromQueryVar(second, attr2)
 									+ " AND ";
@@ -142,7 +142,7 @@ public class Preprocessor {
 			relationName = "WITNESSES";
 		String q = "CREATE TABLE " + relationName + " AS SELECT ";
 		for (Atom atom : query.getAtoms()) {
-			for (String var : atom.getAttributes()) {
+			for (String var : atom.getVars()) {
 				String attr = getAttributeFromQueryVar(atom, var);
 				q += attr + " AS " + attr.replaceAll("\\.", "_") + ",";
 			}
@@ -168,8 +168,8 @@ public class Preprocessor {
 			for (Atom second : query.getAtoms()) {
 				if (first.equals(second))
 					continue;
-				for (String attr1 : first.getAttributes()) {
-					for (String attr2 : second.getAttributes()) {
+				for (String attr1 : first.getVars()) {
+					for (String attr2 : second.getVars()) {
 						if (attr1.equals(attr2)) {
 							q += getAttributeFromQueryVar(first, attr1) + "=" + getAttributeFromQueryVar(second, attr2)
 									+ " AND ";
@@ -258,16 +258,16 @@ public class Preprocessor {
 			for (Relation r : relations) {
 				if (r.getName().equalsIgnoreCase(atom.getName())) {
 					return atom.getName() + atom.getAtomIndex() + "."
-							+ r.getAttributes().get(atom.getAttributes().indexOf(var));
+							+ r.getAttributes().get(atom.getVars().indexOf(var));
 				}
 			}
 		} else {
 			for (Atom curAtom : query.getAtoms()) {
-				if (curAtom.getAttributes().indexOf(var) != -1) {
+				if (curAtom.getVars().indexOf(var) != -1) {
 					for (Relation r : relations) {
 						if (r.getName().equalsIgnoreCase(curAtom.getName())) {
 							return curAtom.getName() + curAtom.getAtomIndex() + "."
-									+ r.getAttributes().get(curAtom.getAttributes().indexOf(var));
+									+ r.getAttributes().get(curAtom.getVars().indexOf(var));
 						}
 					}
 				}
