@@ -1,6 +1,7 @@
 package com.util;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -18,78 +19,11 @@ import com.beans.Schema;
 
 public class ProblemParser {
 
-	public Query parseQueryFromFile(String filePath) {
-		BufferedReader br = null;
-		try {
-			br = new BufferedReader(new FileReader(filePath));
-			String currentLine;
-			Query query = new Query();
-			int flag = 0;
-			while ((currentLine = br.readLine()) != null) {
-				if (currentLine.isEmpty()) {
-					// Skip line
-					continue;
-				} else if (currentLine.equals("q")) {
-					flag = 1;
-					continue;
-				} else if (currentLine.equals("free")) {
-					flag = 2;
-					continue;
-				} else if (currentLine.equals("keys")) {
-					flag = 3;
-					continue;
-				}
-
-				if (flag == 1) {
-					// Parse atoms
-					String[] parts = currentLine.split("\t");
-					Atom atom = new Atom(parts[0]);
-					for (String var : parts[1].replaceAll(" ", "").split(",")) {
-						// if (!isConstant(var))
-						atom.addVar(var);
-						atom.setAtomIndex(query.getAtomsCountByName(parts[0]) + 1);
-					}
-					query.addAtom(atom);
-				} else if (flag == 2) {
-					// Parse free variables
-					String[] parts = currentLine.replaceAll(" ", "").split(",");
-					for (String var : parts) {
-						// if (!query.getFreeVars().contains(var) && !isConstant(var))
-						query.getFreeVars().add(var);
-					}
-				} else if (flag == 3) {
-					// Parse key and nonkey variables in the query
-					String[] parts = currentLine.split("\t");
-					Atom atom = query.getAtomByName(parts[0]);
-					for (String var : parts[1].replaceAll(" ", "").split(",")) {
-						// if (!atom.getKeyVars().contains(var) && !isConstant(var))
-						atom.addKeyVar(var);
-					}
-					for (String var : atom.getVars()) {
-						if (!atom.getKeyVars().contains(var))
-							atom.getNonKeyVars().add(var);
-					}
-				}
-			}
-			return query;
-		} catch (IOException e) {
-			e.printStackTrace();
-			return null;
-		} finally {
-			try {
-				if (br != null)
-					br.close();
-			} catch (IOException ex) {
-				ex.printStackTrace();
-			}
-		}
-	}
-
-	public List<Query> parseUCQ(String filePath) {
+	public List<Query> parseUCQ(File file) {
 		BufferedReader br = null;
 		List<Query> uCQ = new ArrayList<Query>();
 		try {
-			br = new BufferedReader(new FileReader(filePath));
+			br = new BufferedReader(new FileReader(file));
 			String currentLine;
 			while ((currentLine = br.readLine()) != null) {
 				Query query = new Query();
@@ -111,6 +45,10 @@ public class ProblemParser {
 			e.printStackTrace();
 			return null;
 		}
+	}
+
+	public List<Query> parseUCQ(String filePath) {
+		return parseUCQ(new File(filePath));
 	}
 
 	public Schema parseSchema(String filePath) {

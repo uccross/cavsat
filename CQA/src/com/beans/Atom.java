@@ -5,7 +5,7 @@ import java.util.List;
 
 public class Atom {
 	private String name;
-	private int atomIndex;
+	//private int atomIndex;
 	private List<String> vars;
 	private List<String> constants;
 	private List<String> keyVars;
@@ -47,13 +47,13 @@ public class Atom {
 		this.name = name;
 	}
 
-	public int getAtomIndex() {
+	/*public int getAtomIndex() {
 		return atomIndex;
 	}
 
 	public void setAtomIndex(int atomIndex) {
 		this.atomIndex = atomIndex;
-	}
+	}*/
 
 	public List<String> getVars() {
 		return vars;

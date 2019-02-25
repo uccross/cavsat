@@ -16,6 +16,10 @@ public class Preprocessor {
 	private Set<Relation> relations;
 	private Connection con;
 
+	public Query getQuery() {
+		return query;
+	}
+
 	public Preprocessor(Schema schema, Query query, Connection con) {
 		super();
 		this.query = query;
@@ -41,12 +45,12 @@ public class Preprocessor {
 	public void createIndexesOnKeys() {
 		try {
 			for (Relation r : relations) {
-				//con.prepareStatement("DROP INDEX IF EXISTS INDEX_" + r.getName()).execute();
+				// con.prepareStatement("DROP INDEX IF EXISTS INDEX_" + r.getName()).execute();
 				con.prepareStatement("CREATE INDEX INDEX_" + r.getName() + " ON " + r.getName() + "("
 						+ r.getAttributesFromIndexesCSV(r.getKeyAttributes(), null) + ")").execute();
 			}
 		} catch (SQLException e) {
-			//e.printStackTrace();
+			// e.printStackTrace();
 		}
 	}
 
@@ -56,16 +60,14 @@ public class Preprocessor {
 			q += "TRUE ";
 		} else {
 			for (String var : query.getFreeVars()) {
-				//System.out.println(var);
 				String attr = getAttributeFromQueryVar(null, var);
-				//System.out.println(attr);
 				q += attr + " AS " + attr.replaceAll("\\.", "_") + ",";
 			}
 			q = q.substring(0, q.length() - 1);
 		}
 		q += " FROM ";
 		for (Atom atom : query.getAtoms()) {
-			q += atom.getName() + " " + atom.getName() + atom.getAtomIndex() + ",";
+			q += atom.getName() + " " + atom.getName() + ",";
 		}
 		q = q.substring(0, q.length() - 1) + " WHERE ";
 
@@ -89,20 +91,11 @@ public class Preprocessor {
 
 		// Taking from only the consistent part
 		for (Relation r : relations) {
-			 q += " AND (" + r.getAttributesFromIndexesCSV(r.getKeyAttributes(),
-			 r.getName() + "1")
-			 + ") NOT IN (SELECT * FROM KEYS_TABLE_" + r.getName() + ")";
-
-			/*q += " AND NOT EXISTS (SELECT 1 FROM KEYS_TABLE_" + r.getName() + " WHERE ";
-			for (String s : r.getKeyAttributesList()) {
-				q += r.getName() + "1." + s + "=KEYS_TABLE_" + r.getName() + "." + s + " AND ";
-			}
-			if (q.endsWith(" AND "))
-				q = q.substring(0, q.length() - 5);
-			q += " LIMIT 1)";*/
+			q += " AND (" + r.getAttributesFromIndexesCSV(r.getKeyAttributes(), r.getName())
+					+ ") NOT IN (SELECT * FROM KEYS_TABLE_" + r.getName() + ")";
 		}
-		 if (q.endsWith(" AND "))
-		 q = q.substring(0, q.length() - 5);
+		if (q.endsWith(" AND "))
+			q = q.substring(0, q.length() - 5);
 		if (!query.isBoolean()) {
 			q += " GROUP BY ";
 			for (String var : query.getFreeVars()) {
@@ -110,10 +103,11 @@ public class Preprocessor {
 			}
 			q = q.substring(0, q.length() - 1);
 		}
-		//System.out.println(q);
+		// System.out.println(q);
 		try {
-			//con.prepareStatement("DROP TABLE IF EXISTS ANS_FROM_CONS CASCADE").execute();
+			// con.prepareStatement("DROP TABLE IF EXISTS ANS_FROM_CONS CASCADE").execute();
 			PreparedStatement psAnsFromCons = con.prepareStatement(q);
+			// System.out.println(q);
 			psAnsFromCons.execute();
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -151,14 +145,13 @@ public class Preprocessor {
 		prefix = "";
 		if (includeFactIDs) {
 			for (Atom atom : query.getAtoms()) {
-				q += ", " + atom.getName() + atom.getAtomIndex() + ".FactID AS " + atom.getName() + "_"
-						+ atom.getAtomIndex() + "_FactID";
+				q += ", " + atom.getName() + ".FactID AS " + atom.getName() + "_FactID";
 			}
 			prefix = "RELEVANT_";
 		}
 		q += " FROM ";
 		for (Atom atom : query.getAtoms()) {
-			q += prefix + atom.getName() + " " + atom.getName() + atom.getAtomIndex() + ",";
+			q += prefix + atom.getName() + " " + atom.getName() + ",";
 		}
 		q = q.substring(0, q.length() - 1);
 
@@ -186,25 +179,26 @@ public class Preprocessor {
 			if (!q.endsWith(" AND "))
 				q += " AND ";
 
-			
-			  q += "("; for (String var : query.getFreeVars()) { q +=
-			  getAttributeFromQueryVar(null, var) + ","; } q = q.substring(0, q.length() -
-			  1); q += ")"; q += " NOT IN (SELECT * FROM ANS_FROM_CONS)";
-			 
-
-			/*q += "NOT EXISTS (SELECT 1 FROM ANS_FROM_CONS WHERE ";
+			q += "(";
 			for (String var : query.getFreeVars()) {
-				String attr = getAttributeFromQueryVar(null, var);
-				q += attr + " = ANS_FROM_CONS." + attr.replaceAll("\\.", "_") + " AND ";
+				q += getAttributeFromQueryVar(null, var) + ",";
 			}
-			if (q.endsWith(" AND "))
-				q = q.substring(0, q.length() - 5);
-			q += ")";*/
+			q = q.substring(0, q.length() - 1);
+			q += ")";
+			q += " NOT IN (SELECT * FROM ANS_FROM_CONS)";
+
+			/*
+			 * q += "NOT EXISTS (SELECT 1 FROM ANS_FROM_CONS WHERE "; for (String var :
+			 * query.getFreeVars()) { String attr = getAttributeFromQueryVar(null, var); q
+			 * += attr + " = ANS_FROM_CONS." + attr.replaceAll("\\.", "_") + " AND "; } if
+			 * (q.endsWith(" AND ")) q = q.substring(0, q.length() - 5); q += ")";
+			 */
 		}
 
 		try {
-			//con.prepareStatement("DROP TABLE IF EXISTS " + relationName + " CASCADE").execute();
-			//System.out.println(q);
+			// con.prepareStatement("DROP TABLE IF EXISTS " + relationName + "
+			// CASCADE").execute();
+			// System.out.println(q);
 			PreparedStatement psWitnesses = con.prepareStatement(q);
 			psWitnesses.execute();
 		} catch (SQLException e) {
@@ -225,8 +219,7 @@ public class Preprocessor {
 			for (Atom atom : query.getAtoms()) {
 				if (atom.getName().equalsIgnoreCase(r.getName())) {
 					for (String key : r.getKeyAttributesList()) {
-						q += r.getName() + "." + key + " = WITNESSES." + atom.getName() + atom.getAtomIndex() + "_"
-								+ key + " AND ";
+						q += r.getName() + "." + key + " = WITNESSES." + atom.getName() + "_" + key + " AND ";
 					}
 				}
 			}
@@ -237,9 +230,10 @@ public class Preprocessor {
 			if (q.endsWith(" AND "))
 				q = q.substring(0, q.length() - 5);
 			q += " GROUP BY " + r.getAllAttributesCSV(r.getName());
-			//System.out.println(q);
+			// System.out.println(q);
 			try {
-				//con.prepareStatement("DROP TABLE IF EXISTS RELEVANT_" + r.getName() + " CASCADE").execute();
+				// con.prepareStatement("DROP TABLE IF EXISTS RELEVANT_" + r.getName() + "
+				// CASCADE").execute();
 				PreparedStatement psRelevant = con.prepareStatement(q);
 				psRelevant.execute();
 				ResultSet rs = con.prepareStatement("SELECT COUNT(*) FROM RELEVANT_" + r.getName()).executeQuery();
@@ -257,8 +251,7 @@ public class Preprocessor {
 		if (atom != null) {
 			for (Relation r : relations) {
 				if (r.getName().equalsIgnoreCase(atom.getName())) {
-					return atom.getName() + atom.getAtomIndex() + "."
-							+ r.getAttributes().get(atom.getVars().indexOf(var));
+					return atom.getName() + "." + r.getAttributes().get(atom.getVars().indexOf(var));
 				}
 			}
 		} else {
@@ -266,8 +259,7 @@ public class Preprocessor {
 				if (curAtom.getVars().indexOf(var) != -1) {
 					for (Relation r : relations) {
 						if (r.getName().equalsIgnoreCase(curAtom.getName())) {
-							return curAtom.getName() + curAtom.getAtomIndex() + "."
-									+ r.getAttributes().get(curAtom.getVars().indexOf(var));
+							return curAtom.getName() + "." + r.getAttributes().get(curAtom.getVars().indexOf(var));
 						}
 					}
 				}
@@ -275,7 +267,7 @@ public class Preprocessor {
 		}
 		return null;
 	}
-	
+
 	public void dropAllTables() {
 		try {
 			con.prepareStatement("DROP TABLE IF EXISTS ANS_FROM_CONS CASCADE").execute();

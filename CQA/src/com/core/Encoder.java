@@ -41,7 +41,7 @@ public class Encoder {
 	private CNFFormula createBooleanNegClauses(int totalFacts) {
 		String q = "SELECT ";
 		for (Atom atom : query.getAtoms()) {
-			q += atom.getName() + "_" + atom.getAtomIndex() + "_factid,";
+			q += atom.getName() + "_factid,";
 		}
 		q = q.substring(0, q.length() - 1);
 		q += " FROM WITNESSES_WITH_FACTID";
@@ -76,7 +76,7 @@ public class Encoder {
 		Set<Integer> vars = new HashSet<Integer>();
 		String q = "SELECT ";
 		for (Atom atom : query.getAtoms()) {
-			q += atom.getName() + "_" + atom.getAtomIndex() + "_factid,";
+			q += atom.getName() + "_factid,";
 		}
 		q += "ADDITIONAL_ANSWERS.FactID FROM WITNESSES_WITH_FACTID, ADDITIONAL_ANSWERS WHERE ";
 		for (String var : query.getFreeVars()) {
@@ -84,13 +84,15 @@ public class Encoder {
 			q += "WITNESSES_WITH_FACTID." + attr + "=" + "ADDITIONAL_ANSWERS." + attr + " AND ";
 		}
 		q = q.substring(0, q.length() - 5);
-		//System.out.println(q);
+		// System.out.println(q);
 		CNFFormula formula = new CNFFormula();
 		Clause additionalPositiveClause = new Clause();
 		PreparedStatement psWitnessFacts;
 		try {
 			psWitnessFacts = con.prepareStatement(q);
+			long start = System.currentTimeMillis();
 			ResultSet rsWitnessFacts = psWitnessFacts.executeQuery();
+			System.out.println("Got resultset in " + (System.currentTimeMillis() - start) + "ms");
 			while (rsWitnessFacts.next()) {
 				Clause clause = new Clause();
 				for (int i = 1; i <= querySize; i++) {
@@ -132,12 +134,48 @@ public class Encoder {
 		String q = "CREATE TABLE ADDITIONAL_ANSWERS AS SELECT " + attrs + "," + totalFacts + "+"
 				+ " ROW_NUMBER() OVER (ORDER BY 1) AS FactID";
 		q += " FROM WITNESSES_WITH_FACTID GROUP BY " + attrs;
-		//System.out.println(q);
+		// System.out.println(q);
 		try {
 			con.prepareStatement("DROP TABLE IF EXISTS ADDITIONAL_ANSWERS").execute();
 			PreparedStatement psAdditionalAnswers = con.prepareStatement(q);
 			psAdditionalAnswers.execute();
 		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void createPositiveClauses() {
+		PreparedStatement psKeyEqualGroups;
+		Clause clause = null;
+		try {
+			BufferedWriter writer = new BufferedWriter(new FileWriter("formulatry.txt"));
+			for (Relation r : relations) {
+				String s = r.getAttributesFromIndexesCSV(r.getKeyAttributes(), "RELEVANT_" + r.getName());
+				String q = "SELECT (" + s + "), FactID FROM RELEVANT_" + r.getName() + " ORDER BY " + s;
+				psKeyEqualGroups = con.prepareStatement(q);
+				ResultSet rsKeyEqualGroups = psKeyEqualGroups.executeQuery();
+				String curValue = "", receivedValue = "";
+				while (rsKeyEqualGroups.next()) {
+					receivedValue = rsKeyEqualGroups.getString(1);
+					if (!receivedValue.equals(curValue)) {
+						if (null != clause) {
+							clause.setDescription("K");
+							writer.append(clause.getDimacsLine());
+						}
+						clause = new Clause();
+						clause.addVar(rsKeyEqualGroups.getInt(2));
+						curValue = receivedValue;
+					} else {
+						clause.addVar(rsKeyEqualGroups.getInt(2));
+					}
+				}
+				if (null != clause) {
+					clause.setDescription("K");
+					writer.append(clause.getDimacsLine());
+				}
+			}
+			writer.close();
+		} catch (SQLException | IOException e) {
 			e.printStackTrace();
 		}
 	}
@@ -151,13 +189,16 @@ public class Encoder {
 				String s = r.getAttributesFromIndexesCSV(r.getKeyAttributes(), "RELEVANT_" + r.getName());
 				String q = "SELECT (" + s + "), FactID FROM RELEVANT_" + r.getName() + " ORDER BY " + s;
 				psKeyEqualGroups = con.prepareStatement(q);
-				//System.out.println(q);
+				// System.out.println(q);
+				long start = System.currentTimeMillis();
 				ResultSet rsKeyEqualGroups = psKeyEqualGroups.executeQuery();
+				System.out.println("Got resultset in " + (System.currentTimeMillis() - start) + "ms");
 				String curValue = "", receivedValue = "";
+				start = System.currentTimeMillis();
 				while (rsKeyEqualGroups.next()) {
 					receivedValue = rsKeyEqualGroups.getString(1);
 					if (!receivedValue.equals(curValue)) {
-						if (null != clause && !clause.isEmpty()) {
+						if (null != clause) {
 							clause.setDescription("K");
 							formula.addClause(clause);
 						}
@@ -168,6 +209,7 @@ public class Encoder {
 						clause.addVar(rsKeyEqualGroups.getInt(2));
 					}
 				}
+				System.out.println("While loop took " + (System.currentTimeMillis() - start) + "ms");
 				if (null != clause) {
 					clause.setDescription("K");
 					formula.addClause(clause);
@@ -185,8 +227,7 @@ public class Encoder {
 		if (atom != null) {
 			for (Relation r : relations) {
 				if (r.getName().equalsIgnoreCase(atom.getName())) {
-					return atom.getName() + atom.getAtomIndex() + "_"
-							+ r.getAttributes().get(atom.getVars().indexOf(var));
+					return atom.getName() + "_" + r.getAttributes().get(atom.getVars().indexOf(var));
 				}
 			}
 		} else {
@@ -194,8 +235,7 @@ public class Encoder {
 				if (curAtom.getVars().indexOf(var) != -1) {
 					for (Relation r : relations) {
 						if (r.getName().equalsIgnoreCase(curAtom.getName())) {
-							return curAtom.getName() + curAtom.getAtomIndex() + "_"
-									+ r.getAttributes().get(curAtom.getVars().indexOf(var));
+							return curAtom.getName() + "_" + r.getAttributes().get(curAtom.getVars().indexOf(var));
 						}
 					}
 				}

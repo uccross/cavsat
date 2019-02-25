@@ -12,6 +12,9 @@ import com.beans.Atom;
 import com.beans.Query;
 import com.beans.Relation;
 import com.beans.Schema;
+import com.beans.TRCQuery;
+import com.beans.TRCQuery.TupleVar;
+import com.util.Constants;
 
 public class Preprocessor2 {
 	private List<Query> uCQ;
@@ -25,9 +28,10 @@ public class Preprocessor2 {
 		this.con = con;
 	}
 
-	public void createWitnessesToUCQ() {
+	public void createMinimalWitnessesToUCQ() {
 		try {
-			String createViewQuery = "CREATE OR REPLACE VIEW WITNESSES AS " + getUCQQuery();
+			String createViewQuery = "CREATE OR REPLACE VIEW " + Constants.minimalWitnesses + " AS \n" + getUCQQuery();
+			System.out.println(createViewQuery);
 			con.prepareStatement(createViewQuery).execute();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -39,28 +43,31 @@ public class Preprocessor2 {
 		for (Query query : this.uCQ) {
 			witnessQuery = "";
 			Set<Relation> participatingRelations = new HashSet<Relation>();
-			Map<String, List<String>> varAttributes = new HashMap<String, List<String>>();
+			Map<String, List<TupleVar>> varAttributes = new HashMap<String, List<TupleVar>>();
 			for (Atom atom : query.getAtoms()) {
 				participatingRelations.add(schema.getRelationByName(atom.getName()));
 				for (int i = 0; i < atom.getVars().size(); i++) {
 					String var = atom.getVars().get(i);
 					if (!varAttributes.containsKey(var)) {
-						varAttributes.put(var, new ArrayList<String>());
+						varAttributes.put(var, new ArrayList<TupleVar>());
 					}
-					varAttributes.get(var).add(
-							atom.getName() + "." + schema.getRelationByName(atom.getName()).getAttributes().get(i));
+					varAttributes.get(var).add(new TRCQuery().new TupleVar(schema.getRelationByName(atom.getName()),
+							schema.getRelationByName(atom.getName()).getAttributes().get(i)));
 				}
 			}
 			// SELECT
-			witnessQuery += "SELECT (";
+			witnessQuery += "SELECT ";
 			for (String var : query.getFreeVars()) {
-				witnessQuery += varAttributes.get(var).get(0) + ",";
+				for (TupleVar pair : varAttributes.get(var)) {
+					witnessQuery += pair.getRelation().getName() + "." + pair.getVar() + " AS "
+							+ pair.getRelation().getName() + "_" + pair.getVar() + ", ";
+				}
 			}
 			// FROM
-			if (witnessQuery.endsWith("(")) {
-				witnessQuery += "TRUE) FROM ";
+			if (query.isBoolean()) {
+				witnessQuery += "TRUE FROM ";
 			} else {
-				witnessQuery = witnessQuery.substring(0, witnessQuery.length() - 1) + ") FROM ";
+				witnessQuery = witnessQuery.substring(0, witnessQuery.length() - 2) + " FROM ";
 			}
 			for (Relation r : participatingRelations) {
 				witnessQuery += r.getName() + ",";
@@ -69,7 +76,10 @@ public class Preprocessor2 {
 			witnessQuery = witnessQuery.substring(0, witnessQuery.length() - 1) + " WHERE ";
 			for (String var : varAttributes.keySet()) {
 				for (int i = 1; i < varAttributes.get(var).size(); i++) {
-					witnessQuery += varAttributes.get(var).get(0) + "=" + varAttributes.get(var).get(i) + " AND ";
+					TupleVar pair = varAttributes.get(var).get(0);
+					witnessQuery += pair.getRelation().getName() + "." + pair.getVar() + "="
+							+ varAttributes.get(var).get(i).getRelation().getName() + "."
+							+ varAttributes.get(var).get(i).getVar() + " AND ";
 				}
 			}
 			if (witnessQuery.endsWith(" WHERE ")) {
@@ -77,10 +87,10 @@ public class Preprocessor2 {
 			} else if (witnessQuery.endsWith(" AND ")) {
 				witnessQuery = witnessQuery.substring(0, witnessQuery.length() - 5);
 			}
-			unionQuery = unionQuery + "(" + witnessQuery + ") UNION ";
+			unionQuery = unionQuery + "(" + witnessQuery + ")\n UNION \n";
 		}
-		if (unionQuery.endsWith(" UNION ")) {
-			unionQuery = unionQuery.substring(0, unionQuery.length() - 7);
+		if (unionQuery.endsWith("\n UNION \n")) {
+			unionQuery = unionQuery.substring(0, unionQuery.length() - 9);
 		}
 		return unionQuery;
 	}

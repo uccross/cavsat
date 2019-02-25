@@ -62,7 +62,7 @@ public class CNFFormula {
 
 	public CNFFormula combine(CNFFormula f2) {
 		this.clauses.addAll(f2.getClauses());
-		//this.noOfVariables += f2.getNoOfVariables();
+		this.noOfVariables += f2.getNoOfVariables();
 		return this;
 	}
 

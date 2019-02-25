@@ -22,11 +22,12 @@ public class CertainRewriter {
 	public static final String FREE_TUPLE_ALIAS = "free_";
 	public static final Map<Integer, String[]> FREE_VARS_MAP = new HashMap<Integer, String[]>();
 
-	public void doEverything(Query query, Schema schema) {
+	public String getCertainRewritingSQL(Query query, Schema schema) {
+		FREE_VARS_MAP.clear();
 		TRCQuery q = convertToTRC(query, schema);
 		q = certainRewriting(q);
 		q = removeUniversalQuantifiers(q);
-		q.printSQL();
+		return q.printSQL();
 	}
 
 	public TRCQuery certainRewriting(TRCQuery originalQuery) {
@@ -50,10 +51,6 @@ public class CertainRewriter {
 		}
 		// this is in fact (f = f -> originalFormula)
 		f = trcQuery.new Formula(trcQuery.negateFormula(f), originalQuery.getFormula(), Op.OR);
-
-		System.out.print("PHI:= ");
-		originalQuery.getFormula().print();
-		System.out.println();
 		trcQuery.setFormula(f);
 		// trcQuery.printSQL();
 		return trcQuery;
@@ -84,7 +81,6 @@ public class CertainRewriter {
 		for (String var : varAttributes.keySet()) {
 			VarAttrPair leftSide = varAttributes.get(var).get(0);
 			VarAttrPair rightSide;
-
 			if (query.getFreeVars().contains(var)) {
 				trcQuery.getFreeVars().add(varAttributes.get(var).get(0));
 				// freeTuple.setVar(leftSide.getTupleVar().getVar());

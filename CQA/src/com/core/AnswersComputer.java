@@ -1,8 +1,10 @@
 package com.core;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.FileOutputStream;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -12,8 +14,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import com.beans.CNFFormula;
-import com.beans.Clause;
 import com.beans.Stats;
 import com.util.ExecCommand;
 
@@ -191,13 +191,14 @@ public class AnswersComputer {
 		}
 	}
 
-	public void eliminatePotentialAnswers(String filename, CNFFormula f) {
+	public long eliminatePotentialAnswers(String filename, int infinity) {
 		boolean moreAnswers = true;
 		String q = "SELECT FactID FROM ADDITIONAL_ANSWERS", output = "";
 		Set<Integer> potentialAnswers = null;
 		List<String> assignment = null;
 		Set<Integer> inconsistentAnswers = new HashSet<Integer>();
 		int iterationCount = 0;
+		long time = 0, start = 0;
 		while (moreAnswers) {
 			iterationCount++;
 			moreAnswers = false;
@@ -212,8 +213,10 @@ public class AnswersComputer {
 			}
 
 			ExecCommand command = new ExecCommand();
+			start = System.currentTimeMillis();
 			command.executeCommand(new String[] { "./maxhs", filename }, "output.txt");
 			output = command.readOutput("output.txt");
+			time += (System.currentTimeMillis() - start);
 			assignment = Arrays.asList(output.replaceAll("\n", "").split(" "));
 			for (int answer : potentialAnswers) {
 				if (assignment.contains(Integer.toString(answer))) {
@@ -223,19 +226,24 @@ public class AnswersComputer {
 			}
 			deleteInconsistentAdditionalAnswers(inconsistentAnswers);
 			if (moreAnswers)
-				changeFormula(inconsistentAnswers, filename, f);
+				changeFormula(inconsistentAnswers, filename, infinity);
 		}
 		System.out.println("MaxSAT Iterations: " + iterationCount);
 		buildFinalAnswers();
+		return time;
 	}
 
-	private void changeFormula(Set<Integer> inconsistentAnswers, String filename, CNFFormula f) {
-		for (int answer : inconsistentAnswers) {
-			Clause clause = new Clause();
-			clause.addVar(-1 * answer);
-			clause.setDescription("I");
-			f.addClause(clause);
+	private void changeFormula(Set<Integer> inconsistentAnswers, String formulaFilename, int infinity) {
+		BufferedWriter wr;
+		try {
+			wr = new BufferedWriter(new FileWriter(formulaFilename, true));
+			for (int answer : inconsistentAnswers) {
+				wr.write(infinity + " " + (-1 * answer) + " 0 c I\n");
+			}
+			wr.close();
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
-		Encoder.createDimacsFile(filename, f, 0);
+
 	}
 }

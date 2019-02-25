@@ -57,27 +57,30 @@ public class TRCQuery {
 			System.out.print("(NULL)");
 	}
 
-	public void printSQL() {
+	public String printSQL() {
 		StringBuilder builder = new StringBuilder("\n");
-		String tabs = "\t", prefix = "";
+		String tabs = "\t", prefix = "", fromClause = "";
 		Map<Integer, String[]> freeVarAttrPairs = CertainRewriter.FREE_VARS_MAP;
 		builder.append("SELECT DISTINCT ");
 		for (int key : freeVarAttrPairs.keySet()) {
 			builder.append(prefix);
+			fromClause += prefix;
 			prefix = ",";
 			builder.append(CertainRewriter.FREE_TUPLE_ALIAS + freeVarAttrPairs.get(key)[0] + "."
-					+ freeVarAttrPairs.get(key)[1] + " FROM " + freeVarAttrPairs.get(key)[0] + " AS "
-					+ CertainRewriter.FREE_TUPLE_ALIAS + freeVarAttrPairs.get(key)[0]);
+					+ freeVarAttrPairs.get(key)[1]);
+			fromClause += freeVarAttrPairs.get(key)[0] + " AS " + CertainRewriter.FREE_TUPLE_ALIAS
+					+ freeVarAttrPairs.get(key)[0];
 		}
+		builder.append(" FROM " + fromClause);
 		builder.append("\n");
 		for (Quantifier quantifier : this.quantifiers) {
 			if (quantifier.quantification == Q.EXISTS) {
-				builder.append(tabs + "WHERE EXISTS(\n");
+				builder.append(tabs + " WHERE EXISTS(\n");
 			} else if (quantifier.quantification == Q.NOTEXISTS) {
-				builder.append(tabs + "WHERE NOT EXISTS(\n");
+				builder.append(tabs + " WHERE NOT EXISTS(\n");
 			} else {
 				System.out.println(quantifier.quantification + " CANNOT PRINT SQL");
-				return;
+				return null;
 			}
 			tabs += "\t";
 			builder.append(tabs + "SELECT * FROM " + quantifier.tupleVar.relation.getName() + " AS "
@@ -92,7 +95,7 @@ public class TRCQuery {
 			builder.append(")");
 			builder.append("\n");
 		}
-		System.out.println(builder.toString());
+		return builder.toString();
 	}
 
 	public class TupleVar {

@@ -20,7 +20,12 @@ public class Query {
 	}
 
 	public boolean isBoolean() {
-		return this.freeVars.size() == 0;
+		for (String var : this.freeVars) {
+			if (!var.isEmpty()) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	public List<Atom> getAtoms() {

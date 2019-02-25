@@ -152,20 +152,20 @@ public class Encoder1 {
 		// Forming select-clause and from-clause
 		if (includeFactIDs)
 			for (Atom atom : query.getAtoms()) {
-				selectClause += atom.getName() + atom.getAtomIndex() + ".factID AS " + atom.getName()
-						+ atom.getAtomIndex() + "fact,";
-				fromClause += atom.getName() + "_VIEW " + atom.getName() + atom.getAtomIndex() + ",";
+				selectClause += atom.getName() + ".factID AS " + atom.getName()
+						 + "fact,";
+				fromClause += atom.getName() + "_VIEW " + atom.getName() + ",";
 			}
 		else {
 			for (Atom atom : query.getAtoms()) {
-				fromClause += atom.getName() + "_VIEW " + atom.getName() + atom.getAtomIndex() + ",";
+				fromClause += atom.getName() + "_VIEW " + atom.getName() + ",";
 			}
 		}
 
 		if (selectRelevantAttribues) {
 			for (Atom atom : query.getAtoms()) {
 				for (String attribute : schema.getRelationByName(atom.getName()).getRelevantAttributes()) {
-					selectClause += atom.getName() + atom.getAtomIndex() + "." + attribute + " AS " + atom.getName()
+					selectClause += atom.getName() + "." + attribute + " AS " + atom.getName()
 							+ "_" + attribute + ",";
 				}
 			}
@@ -181,7 +181,7 @@ public class Encoder1 {
 					for (String attribute : atom.getVars()) {
 						attributeIndex++;
 						if (attribute.equals(var)) {
-							selectClause += atom.getName() + atom.getAtomIndex() + "."
+							selectClause += atom.getName() + "."
 									+ schema.getAttributeNameByIndex(atom.getName(), attributeIndex) + ",";
 							flag = true;
 							break;
@@ -206,14 +206,14 @@ public class Encoder1 {
 						for (String attr2 : atom2attr) {
 							index2++;
 							if (attr1.startsWith("'")) { // Attr1 has a constant value in a query
-								whereClause += atom1.getName() + atom1.getAtomIndex() + "."
+								whereClause += atom1.getName() + "."
 										+ schema.getAttributeNameByIndex(atom1.getName(), index1) + "=" + attr1
 										+ " AND ";
 								break;
-							} else if (attr1.equals(attr2) && atom1.getAtomIndex() <= atom2.getAtomIndex()) {
-								whereClause += atom1.getName() + atom1.getAtomIndex() + "."
+							} else if (attr1.equals(attr2)) {
+								whereClause += atom1.getName() + "."
 										+ schema.getAttributeNameByIndex(atom1.getName(), index1) + "="
-										+ atom2.getName() + atom2.getAtomIndex() + "."
+										+ atom2.getName() + "."
 										+ schema.getAttributeNameByIndex(atom2.getName(), index2) + " AND ";
 							}
 						}

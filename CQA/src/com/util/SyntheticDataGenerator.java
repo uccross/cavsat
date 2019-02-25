@@ -12,17 +12,71 @@ public class SyntheticDataGenerator {
 
 	public static void main(String[] args) {
 		SyntheticDataGenerator generator = new SyntheticDataGenerator();
+		generator.generate(100000);
+	}
+
+	public void generate(int size) {
 		String[] attributes = { "A", "B", "C" };
 		String[] keyAttributes = { "A" };
-		int size = 10000;
-		generator.generateConsistentData("T1", attributes, size, 10, 5, false, null, null, -1);
+		generateConsistentData("R1", attributes, size, 10, 2, false, null, null, -1);
+		generateInconsistentData("R1", attributes, keyAttributes, size, 10, 2);
+		
 		Map<Integer, Integer> joinAttributes = new HashMap<Integer, Integer>();
 		joinAttributes.put(2, 1);
 		joinAttributes.put(1, 2);
-		generator.generateConsistentData("T2", attributes, size, 10, 5, true, "T1", joinAttributes, 5);
+		generateConsistentData("R2", attributes, size, 10, 2, true, "R1", joinAttributes, 5);
+		generateInconsistentData("R2", attributes, keyAttributes, size, 10, 2);
 
-		generator.generateInconsistentData("T1", attributes, keyAttributes, size, 10, 5);
-		generator.generateInconsistentData("T2", attributes, keyAttributes, size, 10, 5);
+		generateConsistentData("R4", attributes, size, 10, 2, false, null, null, -1);
+		generateInconsistentData("R4", attributes, keyAttributes, size, 10, 5);
+
+		generateConsistentData("R3", new String[] { "A", "B" }, size, 10, 2, false, null, null, -1);
+		// generator.createTable("R3", new String[] { "A", "B" });
+		generateR3(size, 5);
+		joinAttributes.clear();
+		joinAttributes.put(2, 1);
+		generateConsistentData("R5", attributes, size, 10, 2, true, "R1", joinAttributes, 5);
+		generateInconsistentData("R5", attributes, new String[] { "A", "B" }, size, 10, 2);
+
+		joinAttributes.clear();
+		joinAttributes.put(2, 2);
+		generateConsistentData("R6", attributes, size, 10, 2, true, "R1", joinAttributes, 5);
+		generateInconsistentData("R6", attributes, new String[] { "A" }, size, 10, 2);
+
+		joinAttributes.clear();
+		joinAttributes.put(1, 1);
+		joinAttributes.put(2, 2);
+		generateConsistentData("R7", attributes, size, 10, 2, true, "R1", joinAttributes, 5);
+		generateInconsistentData("R7", attributes, new String[] { "A" }, size, 10, 2);
+
+		joinAttributes.clear();
+		joinAttributes.put(1, 2);
+		joinAttributes.put(2, 1);
+		generateConsistentData("R8", attributes, size, 10, 2, true, "R1", joinAttributes, 5);
+		generateInconsistentData("R8", attributes, new String[] { "A" }, size, 10, 2);
+	}
+
+	private void generateR3(int size, double percentJoin) {
+		Connection con = new DBEnvironment().getConnection();
+		try {
+			PreparedStatement ps1 = con
+					.prepareStatement("SELECT B FROM R1 ORDER by RANDOM() LIMIT " + (int) (percentJoin * size / 100));
+			PreparedStatement ps2 = con
+					.prepareStatement("SELECT A FROM R4 ORDER by RANDOM() LIMIT " + (int) (percentJoin * size / 100));
+
+			PreparedStatement psInsert = con.prepareStatement("INSERT INTO R3 VALUES (?,?)");
+			ResultSet rs1 = ps1.executeQuery();
+			ResultSet rs2 = ps2.executeQuery();
+
+			while (rs1.next() && rs2.next()) {
+				psInsert.setString(1, rs1.getString(1));
+				psInsert.setString(2, rs2.getString(1));
+				psInsert.addBatch();
+			}
+			psInsert.executeBatch();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 	}
 
 	public void generateConsistentData(String relationName, String[] attributes, int nSize, int percentInconsistency,
@@ -53,7 +107,7 @@ public class SyntheticDataGenerator {
 		int joinedRows = percentJoin * size / 100;
 		String selectRandomRowsToJoin = "SELECT * FROM " + previousTableName + " ORDER BY RANDOM() LIMIT " + joinedRows;
 		Connection con = new DBEnvironment().getConnection();
-		RandomString gen = new RandomString(10, ThreadLocalRandom.current());
+		RandomString gen = new RandomString(5, ThreadLocalRandom.current());
 		ResultSet rsJoinedRows = null;
 		try {
 			PreparedStatement psJoinedRows = con.prepareStatement(selectRandomRowsToJoin);
@@ -86,7 +140,7 @@ public class SyntheticDataGenerator {
 	public void insertInconsistency(String relationName, String[] attributes, String keyAttributesCSV, int nSize,
 			int keyGroupSize) {
 		Connection con = new DBEnvironment().getConnection();
-		RandomString gen = new RandomString(10, ThreadLocalRandom.current());
+		RandomString gen = new RandomString(5, ThreadLocalRandom.current());
 
 		String insert = "INSERT INTO " + relationName + " VALUES (";
 		for (int i = 0; i < attributes.length; i++) {

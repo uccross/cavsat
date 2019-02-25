@@ -6,21 +6,34 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 public class DBEnvironment {
-	private static String url = "jdbc:postgresql://localhost";
-	private static String username = "postgres";
-	private static String password = "postgres123";
-	private static String dbname = "cqa1";
+	private static String PostgresURL = "jdbc:postgresql://localhost/cqa1";
+	private static String PostgresUsername = "postgres";
+	private static String PostgresPassword = "postgres123";
+
+	private static String MySQLURL = "jdbc:mysql://localhost:3306/cqa";
+	private static String MySQLUsername = "root";
+	private static String MySQLPassword = "mysql123";
 
 	public Connection getConnection() {
-		return getConnection(url, dbname, username, password);
+		return getPostgresConnection(PostgresURL, PostgresUsername, PostgresPassword);
 	}
 
-	public Connection getConnection(String url, String dbname, String username, String password) {
+	public Connection getMySQLConnection() {
+		try {
+			Class.forName("com.mysql.cj.jdbc.Driver");
+			return DriverManager.getConnection(MySQLURL, MySQLUsername, MySQLPassword);
+		} catch (ClassNotFoundException | SQLException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+
+	public Connection getPostgresConnection(String url, String username, String password) {
 		try {
 			Properties props = new Properties();
 			props.setProperty("user", username);
 			props.setProperty("password", password);
-			return DriverManager.getConnection(url + "/" + dbname, props);
+			return DriverManager.getConnection(url, props);
 		} catch (SQLException e) {
 			e.printStackTrace();
 			return null;

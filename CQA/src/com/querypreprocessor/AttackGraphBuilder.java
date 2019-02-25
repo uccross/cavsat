@@ -48,8 +48,8 @@ public class AttackGraphBuilder {
 			key.get(atoms.indexOf(atom)).removeAll(query.getFreeVars());
 			nonkey.get(atoms.indexOf(atom)).removeAll(query.getFreeVars());
 		}
-		System.out.println("KEYS: "+key);
-		System.out.println("NON-KEYS: "+nonkey);
+		System.out.println("KEYS: " + key);
+		System.out.println("NON-KEYS: " + nonkey);
 		this.keyCount = new ArrayList<Integer>();
 		this.count = new ArrayList<Integer>();
 		this.keyco = new ArrayList<List<Atom>>();
@@ -84,7 +84,6 @@ public class AttackGraphBuilder {
 	public boolean isQueryFO() {
 		initialize();
 		buildAttackGraph();
-		print();
 		drawAttackGraph();
 		return this.FO;
 	}
@@ -200,7 +199,7 @@ public class AttackGraphBuilder {
 		}
 	}
 
-	private void drawAttackGraph() {
+	public void drawAttackGraph() {
 		SingleGraph graph = new SingleGraph("AttackGraph");
 		graph.addAttribute("ui.stylesheet",
 				"url('C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\lingeling-master\\stylesheet.css')");
