@@ -1,6 +1,8 @@
 package com.util;
 
 import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.beans.Query;
@@ -13,78 +15,85 @@ import com.core.Preprocessor;
 public class Test1 {
 	private static long start;
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws SQLException {
 		ProblemParser pp = new ProblemParser();
-		Schema schema = pp.parseSchema("schema.txt");
+		Schema schema = pp.parseSchema(args[0]);
+		List<Query> uCQ = pp.parseUCQ(args[1]);
 		Connection con = new DBEnvironment().getConnection();
-		int size = 1000000;
-		SyntheticDataGenerator gen = new SyntheticDataGenerator();
-		List<Query> list = pp.parseUCQ("fo-queries.txt");
+		SyntheticDataGenerator3 gen = new SyntheticDataGenerator3();
+		List<Integer> avPrepro = new ArrayList<Integer>();
+		List<Integer> avSolvertime = new ArrayList<Integer>();
 		for (int tada = 0; tada < 1; tada++) {
-			gen.generate(size);
-			System.out.println("DATA SIZE: " + size);
-			size += 100000;
-			int p = 1;
 			Preprocessor preprocessor = null;
-			// double prepro = 0, postime = 0, negtime = 0, nvars = 0, nclauses = 0,
-			// iterations = 0, solvertime = 0;
-			for (Query query : list) {
-				double prepro = 0, postime = 0, negtime = 0, nvars = 0, nclauses = 0, iterations = 0, solvertime = 0;
-				System.out.println("\rq" + (p++));
-				preprocessor = new Preprocessor(schema, query, con);
+			for (Query q : uCQ) {
+				q.print();
+				gen.generateThirdColumnValues(100000);
+				gen.generateConsistent(con, q, 950000, 0.15, false);
+				gen.addInconsistency(con, schema, q, 100000, 2);
+				// gen.adjustFactIDs(con, q);
+				System.out.println("Data generated.");
+
+				double prepro = 0, encoding = 0, nvars = 0, nclauses = 0, iterations = 0, solvertime = 0;
+				preprocessor = new Preprocessor(schema, q, con);
+				// System.out.println("Prepro object created");
 				preprocessor.dropAllTables();
+				System.out.println("Tables dropped");
 				preprocessor.createIndexesOnKeys();
-				long constantStart = System.currentTimeMillis();
+				System.out.println("Indexes created");
+				start = System.currentTimeMillis();
 				preprocessor.createKeysViews();
+				System.out.println("Keys views created in " + timeElapsed());
+				long constantStart = System.currentTimeMillis();
 				preprocessor.createAnsFromCons();
-				if (query.isBoolean() && preprocessor.checkBooleanConsAnswer()) {
+				System.out.println("Ans from cons created in " + timeElapsed());
+				if (q.isBoolean() && preprocessor.checkBooleanConsAnswer()) {
 					System.out.println("Consistent answer is true, computed in "
 							+ (System.currentTimeMillis() - constantStart) + "ms");
+					avPrepro.add((int) (System.currentTimeMillis() - constantStart));
 					continue;
 				}
-				preprocessor.createWitnesses(false);
+				preprocessor.createWitnesses(false, schema);
+				System.out.println("Witnesses created in " + timeElapsed());
 				int totalRelevantFacts = preprocessor.createRelevantViews();
-				preprocessor.createWitnesses(true);
-				System.out
-						.println("Total Preprocessing done in " + (System.currentTimeMillis() - constantStart) + "ms");
+				preprocessor.createWitnesses(true, schema);
+				System.out.println("Relevant facts identified in " + timeElapsed());
 				prepro += (System.currentTimeMillis() - constantStart);
-				Encoder3 encoder = new Encoder3(schema, query, con, "formulaFileName.txt");
-				start = System.currentTimeMillis();
+				Encoder3 encoder = new Encoder3(schema, q, con, "formula.txt");
 				int posClauses = encoder.createPositiveClauses();
+				System.out.println("Positive clauses created in " + timeElapsed());
 				// postime += timeElapsed();
 				int[] arr = encoder.createNegativeClauses(totalRelevantFacts);
+				System.out.println("Negative clauses created in " + timeElapsed());
 				// negtime += timeElapsed();
-				// System.out.println(postime + " " + negtime);
 				encoder.closeBufferedReader();
 				int vars = totalRelevantFacts + arr[0];
 				int clauses = posClauses + arr[1];
 				nvars += vars;
 				nclauses += clauses;
+				//q.print();
 				System.out.println(vars + " vars, " + clauses + " clauses");
-				encoder.writeFinalFormula("formulaFileName.txt", vars, clauses);
-				System.out.println("Encoding: " + timeElapsed());
+				// System.out.println("------------------------------------");
+				encoder.writeFinalFormula("formula.txt", vars, clauses);
+				System.out.println("Encoding in " + timeElapsed());
 				AnswersComputer computer = new AnswersComputer(con);
-				if (query.isBoolean()) {
-					Stats answer = computer.computeBooleanAnswer("final" + "formulaFileName.txt", "maxhas");
+				if (q.isBoolean()) {
+					Stats answer = computer.computeBooleanAnswer("final" + "formula.txt", "maxhs");
 					System.out.println("Consistent answer is " + !answer.isSolved());
 				} else {
-					computer.eliminatePotentialAnswers("final" + "formulaFileName.txt", posClauses + arr[1]);
+					solvertime = computer.eliminatePotentialAnswers("final" + "formula.txt",
+							(posClauses + arr[1]) * 10);
 				}
-				//solvertime += timeElapsed();
-				// System.out.println("Answers computed in " + timeElapsed() + "ms");
-				// System.out.println("Total time: " + (System.currentTimeMillis() -
-				// constantStart) + "ms");
-				System.out.println("Solvertime: " + timeElapsed());
-				System.out.println("-------------------------------------------------------------------------------");
-			}
+				avPrepro.add((int) prepro);
+				avSolvertime.add((int) solvertime);
+				System.out.println("------------------------------------------------------------");
 
-			// System.out.println("Avg preprocessing time: " + (prepro / list.size()));
-			// System.out.println("Avg posclauses creation time: " + (postime /
-			// list.size()));
-			// System.out.println("Avg negclauses creation time: " + (negtime /
-			// list.size()));
-			// System.out.println("Avg solver time: " + (solvertime / list.size()));
-			// System.out.println("-------------------------------------------------------------------------------");
+			}
+			/*
+			 * System.out.println(avPrepro); System.out.println(avSolvertime); double total
+			 * = 0; for (int i : avPrepro) { total += i; } System.out.println(total /
+			 * avPrepro.size()); total = 0; for (int i : avSolvertime) { total += i; }
+			 * System.out.println(total / avSolvertime.size());
+			 */
 		}
 	}
 

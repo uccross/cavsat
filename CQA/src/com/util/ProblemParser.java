@@ -26,7 +26,10 @@ public class ProblemParser {
 			br = new BufferedReader(new FileReader(file));
 			String currentLine;
 			while ((currentLine = br.readLine()) != null) {
+				if(currentLine.startsWith("%") || currentLine.isEmpty())
+					continue;
 				Query query = new Query();
+				query.setSyntax(currentLine);
 				String parts[] = currentLine.split(":");
 				String head = parts[0];
 				String body = parts[1];

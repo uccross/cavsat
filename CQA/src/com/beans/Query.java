@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Set;
 
 public class Query {
+	private String syntax;
 	private List<Atom> atoms;
 	private List<String> freeVars;
 
@@ -13,6 +14,14 @@ public class Query {
 		super();
 		this.atoms = new ArrayList<Atom>();
 		this.freeVars = new ArrayList<String>();
+	}
+
+	public String getSyntax() {
+		return syntax;
+	}
+
+	public void setSyntax(String syntax) {
+		this.syntax = syntax;
 	}
 
 	public int getSize() {
@@ -124,13 +133,6 @@ public class Query {
 	}
 
 	public void print() {
-		System.out.println("Query:");
-		for (Atom a : getAtoms()) {
-			System.out.println(a.getName() + "(" + a.getVarsCSV() + ")" + "\t keys: " + a.getKeyVars() + "\t non-keys: "
-					+ a.getNonKeyVars());
-		}
-		System.out.println("Free variables:");
-		System.out.println(this.freeVars);
-		System.out.println("-------------------------------------------------------------");
+		System.out.println(this.syntax);
 	}
 }

@@ -36,6 +36,14 @@ public class Encoder3 {
 		}
 	}
 
+	public void closeConnection() {
+		try {
+			this.con.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+
 	public void closeBufferedReader() {
 		try {
 			this.br.close();
@@ -84,7 +92,7 @@ public class Encoder3 {
 	public void writeFinalFormula(String formulaFileName, int vars, int clauses) {
 		try {
 			String firstLine = "p wcnf " + vars + " " + clauses + "\n";
-			int infinity = clauses + 1;
+			int infinity = clauses * 10;
 			BufferedReader br = new BufferedReader(new FileReader(formulaFileName));
 			BufferedWriter wr = new BufferedWriter(new FileWriter("final" + formulaFileName));
 			wr.append(firstLine);

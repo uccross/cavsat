@@ -14,6 +14,7 @@ import org.graphstream.graph.implementations.SingleGraph;
 
 import com.beans.Atom;
 import com.beans.Query;
+import com.util.ProblemParser;
 
 public class AttackGraphBuilder {
 
@@ -28,12 +29,22 @@ public class AttackGraphBuilder {
 	private List<List<Atom>> co;
 	private List<List<Atom>> witnessf;
 	private boolean[][] attack;
+	private String[][] fuxmanJoinGraph;
 	private boolean FO;
+
+	public static void main(String args[]) {
+		List<Query> uCQ = new ProblemParser().parseUCQ(
+				"C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\MaxHS-3.0\\build\\release\\bin\\toyquery1.txt");
+		uCQ.get(0).print();
+		AttackGraphBuilder builder = new AttackGraphBuilder(uCQ.get(0));
+		builder.buildFuxmanJoinGraph();
+		builder.drawFuxmanJoinGraph();
+	}
 
 	public AttackGraphBuilder(Query query) {
 		super();
 		this.query = query;
-		this.n = query.getAtoms().size();
+		this.n = query.getSize();
 		this.m = query.getAllVars().size();
 		this.key = new ArrayList<List<String>>();
 		this.nonkey = new ArrayList<List<String>>();
@@ -48,14 +59,56 @@ public class AttackGraphBuilder {
 			key.get(atoms.indexOf(atom)).removeAll(query.getFreeVars());
 			nonkey.get(atoms.indexOf(atom)).removeAll(query.getFreeVars());
 		}
-		System.out.println("KEYS: " + key);
-		System.out.println("NON-KEYS: " + nonkey);
 		this.keyCount = new ArrayList<Integer>();
 		this.count = new ArrayList<Integer>();
 		this.keyco = new ArrayList<List<Atom>>();
 		this.co = new ArrayList<List<Atom>>();
 		this.witnessf = new ArrayList<List<Atom>>();
 		this.attack = new boolean[n][n];
+	}
+
+	public void buildFuxmanJoinGraph() {
+		fuxmanJoinGraph = new String[query.getSize()][query.getSize()];
+		for (int i = 0; i < query.getSize(); i++) {
+			for (int j = i + 1; j < query.getSize(); j++) {
+				Atom r_i = query.getAtoms().get(i);
+				Atom r_j = query.getAtoms().get(j);
+				if (r_i.getName().equalsIgnoreCase(r_j.getName())) {
+					System.out.println("Relation symbol " + r_i.getName() + " appears more than once");
+					fuxmanJoinGraph = new String[query.getSize()][query.getSize()];
+					return;
+				}
+				List<String> arcVars = new ArrayList<String>(r_i.getNonKeyVars());
+				arcVars.retainAll(r_j.getVars());
+				for (String var : query.getFreeVars()) {
+					arcVars.remove(var);
+				}
+				if (!arcVars.isEmpty())
+					fuxmanJoinGraph[i][j] = arcVars.toString();
+			}
+		}
+	}
+
+	public boolean areAllNonKeyToKeyJoinsFull() {
+		for (int i = 0; i < query.getSize(); i++) {
+			for (int j = i + 1; j < query.getSize(); j++) {
+				Atom r_i = query.getAtoms().get(i);
+				Atom r_j = query.getAtoms().get(j);
+				if (r_i.getName().equalsIgnoreCase(r_j.getName())) {
+					System.out.println("Relation symbol " + r_i.getName() + " appears more than once");
+					return false;
+				}
+				List<String> r_jKeys = new ArrayList<String>(r_j.getKeyVars());
+				r_jKeys.retainAll(r_i.getNonKeyVars());
+				if (r_jKeys.isEmpty()) // There's no nonkey-to-key join between r_i and r_j
+					continue;
+				if (new ArrayList<String>(r_j.getKeyVars()).retainAll(r_i.getNonKeyVars())) {
+					System.out.println("Join between " + r_i.getName() + " and " + r_j.getName() + " is not full");
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	public void topologicalSortUtil(int v, boolean visited[], Stack<Integer> stack) {
@@ -84,7 +137,7 @@ public class AttackGraphBuilder {
 	public boolean isQueryFO() {
 		initialize();
 		buildAttackGraph();
-		drawAttackGraph();
+		// drawAttackGraph();
 		return this.FO;
 	}
 
@@ -216,6 +269,33 @@ public class AttackGraphBuilder {
 						Edge edge = graph.addEdge("E" + i + "," + j, atom1.getName() + atom1.getVars(),
 								atom2.getName() + atom2.getVars(), true);
 						edge.addAttribute("ui.label", "E" + i + "," + j);
+					} catch (Exception e) {
+
+					}
+				}
+			}
+		}
+		System.setProperty("gs.ui.renderer", "org.graphstream.ui.j2dviewer.J2DGraphRenderer");
+		graph.display();
+	}
+
+	public void drawFuxmanJoinGraph() {
+		SingleGraph graph = new SingleGraph("JoinGraph");
+		graph.addAttribute("ui.stylesheet",
+				"url('C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\lingeling-master\\stylesheet.css')");
+		for (Atom atom : query.getAtoms()) {
+			Node node = graph.addNode(atom.getName() + atom.getVars());
+			node.addAttribute("ui.label", atom.getName() + atom.getVars());
+		}
+		for (int i = 0; i < n; i++) {
+			for (int j = 0; j < n; j++) {
+				if (fuxmanJoinGraph[i][j] != null && !fuxmanJoinGraph[i][j].isEmpty()) {
+					Atom atom1 = query.getAtomByPosition(i);
+					Atom atom2 = query.getAtomByPosition(j);
+					try {
+						Edge edge = graph.addEdge("E" + i + "," + j, atom1.getName() + atom1.getVars(),
+								atom2.getName() + atom2.getVars(), true);
+						edge.addAttribute("ui.label", fuxmanJoinGraph[i][j]);
 					} catch (Exception e) {
 
 					}

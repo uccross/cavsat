@@ -26,6 +26,7 @@ public class CertainRewriter {
 		FREE_VARS_MAP.clear();
 		TRCQuery q = convertToTRC(query, schema);
 		q = certainRewriting(q);
+		q.print();
 		q = removeUniversalQuantifiers(q);
 		return q.printSQL();
 	}

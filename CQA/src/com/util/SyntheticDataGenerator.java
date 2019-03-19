@@ -12,48 +12,50 @@ public class SyntheticDataGenerator {
 
 	public static void main(String[] args) {
 		SyntheticDataGenerator generator = new SyntheticDataGenerator();
-		generator.generate(100000);
+		generator.generate(100000, 10);
 	}
 
-	public void generate(int size) {
+	public void generate(int size, int inconsistencyPercentage) {
 		String[] attributes = { "A", "B", "C" };
 		String[] keyAttributes = { "A" };
-		generateConsistentData("R1", attributes, size, 10, 2, false, null, null, -1);
-		generateInconsistentData("R1", attributes, keyAttributes, size, 10, 2);
-		
+		generateConsistentData("R1", attributes, size, inconsistencyPercentage, 2, false, null, null, -1);
+		generateInconsistentData("R1", attributes, keyAttributes, size, inconsistencyPercentage, 2);
+
 		Map<Integer, Integer> joinAttributes = new HashMap<Integer, Integer>();
 		joinAttributes.put(2, 1);
 		joinAttributes.put(1, 2);
-		generateConsistentData("R2", attributes, size, 10, 2, true, "R1", joinAttributes, 5);
-		generateInconsistentData("R2", attributes, keyAttributes, size, 10, 2);
+		generateConsistentData("R2", attributes, size, inconsistencyPercentage, 2, true, "R1", joinAttributes, 25);
+		generateInconsistentData("R2", attributes, keyAttributes, size, inconsistencyPercentage, 2);
 
-		generateConsistentData("R4", attributes, size, 10, 2, false, null, null, -1);
-		generateInconsistentData("R4", attributes, keyAttributes, size, 10, 5);
+		generateConsistentData("R4", attributes, size, inconsistencyPercentage, 2, false, null, null, -1);
+		generateInconsistentData("R4", attributes, keyAttributes, size, inconsistencyPercentage, 2);
 
-		generateConsistentData("R3", new String[] { "A", "B" }, size, 10, 2, false, null, null, -1);
+		generateConsistentData("R3", new String[] { "A", "B" }, size, inconsistencyPercentage, 2, false, null, null,
+				-1);
 		// generator.createTable("R3", new String[] { "A", "B" });
-		generateR3(size, 5);
+		generateR3(size, 25);
 		joinAttributes.clear();
 		joinAttributes.put(2, 1);
-		generateConsistentData("R5", attributes, size, 10, 2, true, "R1", joinAttributes, 5);
-		generateInconsistentData("R5", attributes, new String[] { "A", "B" }, size, 10, 2);
+		generateConsistentData("R5", attributes, size, inconsistencyPercentage, 2, true, "R1", joinAttributes, 25);
+		generateInconsistentData("R5", attributes, new String[] { "A", "B" }, size, inconsistencyPercentage, 2);
 
 		joinAttributes.clear();
 		joinAttributes.put(2, 2);
-		generateConsistentData("R6", attributes, size, 10, 2, true, "R1", joinAttributes, 5);
-		generateInconsistentData("R6", attributes, new String[] { "A" }, size, 10, 2);
+		generateConsistentData("R6", attributes, size, inconsistencyPercentage, 2, true, "R1", joinAttributes, 25);
+		generateInconsistentData("R6", attributes, new String[] { "A" }, size, inconsistencyPercentage, 2);
 
 		joinAttributes.clear();
 		joinAttributes.put(1, 1);
 		joinAttributes.put(2, 2);
-		generateConsistentData("R7", attributes, size, 10, 2, true, "R1", joinAttributes, 5);
-		generateInconsistentData("R7", attributes, new String[] { "A" }, size, 10, 2);
+		generateConsistentData("R7", attributes, size, inconsistencyPercentage, 2, true, "R1", joinAttributes, 25);
+		generateInconsistentData("R7", attributes, new String[] { "A" }, size, inconsistencyPercentage, 2);
 
 		joinAttributes.clear();
 		joinAttributes.put(1, 2);
 		joinAttributes.put(2, 1);
-		generateConsistentData("R8", attributes, size, 10, 2, true, "R1", joinAttributes, 5);
-		generateInconsistentData("R8", attributes, new String[] { "A" }, size, 10, 2);
+		generateConsistentData("R8", attributes, size, inconsistencyPercentage, 2, true, "R1", joinAttributes, 25);
+		generateConsistentData("R8", attributes, size, inconsistencyPercentage, 2, true, "R7", joinAttributes, 25);
+		generateInconsistentData("R8", attributes, new String[] { "A" }, size, inconsistencyPercentage, 2);
 	}
 
 	private void generateR3(int size, double percentJoin) {
@@ -107,7 +109,7 @@ public class SyntheticDataGenerator {
 		int joinedRows = percentJoin * size / 100;
 		String selectRandomRowsToJoin = "SELECT * FROM " + previousTableName + " ORDER BY RANDOM() LIMIT " + joinedRows;
 		Connection con = new DBEnvironment().getConnection();
-		RandomString gen = new RandomString(5, ThreadLocalRandom.current());
+		RandomString gen = new RandomString(4, ThreadLocalRandom.current());
 		ResultSet rsJoinedRows = null;
 		try {
 			PreparedStatement psJoinedRows = con.prepareStatement(selectRandomRowsToJoin);
@@ -140,7 +142,7 @@ public class SyntheticDataGenerator {
 	public void insertInconsistency(String relationName, String[] attributes, String keyAttributesCSV, int nSize,
 			int keyGroupSize) {
 		Connection con = new DBEnvironment().getConnection();
-		RandomString gen = new RandomString(5, ThreadLocalRandom.current());
+		RandomString gen = new RandomString(4, ThreadLocalRandom.current());
 
 		String insert = "INSERT INTO " + relationName + " VALUES (";
 		for (int i = 0; i < attributes.length; i++) {

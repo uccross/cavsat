@@ -7,12 +7,12 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
+import java.util.StringTokenizer;
 
 import com.beans.Stats;
 import com.util.ExecCommand;
@@ -73,6 +73,7 @@ public class AnswersComputer {
 		// buildFinalAnswers();
 	}
 
+	@SuppressWarnings("unused")
 	private void buildFinalAnswers() {
 		String q1 = "ALTER TABLE ADDITIONAL_ANSWERS DROP COLUMN FACTID";
 		String q2 = "CREATE TABLE FINAL_ANSWERS AS SELECT * FROM ANS_FROM_CONS UNION SELECT * FROM ADDITIONAL_ANSWERS";
@@ -138,7 +139,7 @@ public class AnswersComputer {
 		return null;
 	}
 
-	public boolean removeLiteralsFromExtraClause(String filename, Set<Integer> literals) {
+	private boolean removeLiteralsFromExtraClause(String filename, Set<Integer> literals) {
 		try {
 			BufferedReader file = new BufferedReader(new FileReader(filename));
 			String line, oldline;
@@ -178,72 +179,91 @@ public class AnswersComputer {
 		}
 	}
 
-	private void deleteInconsistentAdditionalAnswers(Set<Integer> inconsistentFactIDs) {
-		String q = "DELETE FROM ADDITIONAL_ANSWERS WHERE ";
-		for (int factID : inconsistentFactIDs) {
-			q += "FACTID = " + factID + " OR ";
-		}
-		q = q.substring(0, q.length() - 4);
-		try {
-			con.prepareStatement(q).executeUpdate();
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-	}
-
-	public long eliminatePotentialAnswers(String filename, int infinity) {
+	public long eliminatePotentialAnswers2(String filename, int infinity) throws SQLException {
 		boolean moreAnswers = true;
-		String q = "SELECT FactID FROM ADDITIONAL_ANSWERS", output = "";
-		Set<Integer> potentialAnswers = null;
-		List<String> assignment = null;
-		Set<Integer> inconsistentAnswers = new HashSet<Integer>();
-		int iterationCount = 0;
+		BufferedWriter wr = null;
+		PreparedStatement psSelect = con.prepareStatement("SELECT pVar FROM POTENTIAL_ANSWERS");
+		PreparedStatement psDelete = con.prepareStatement("DELETE FROM POTENTIAL_ANSWERS WHERE pVar = ?");
+		String output = "";
+		Set<Integer> assignment = new HashSet<Integer>();
+		ResultSet rsPotentialAnswers = null;
+		int iterationCount = -1;
 		long time = 0, start = 0;
+		ExecCommand command = new ExecCommand();
 		while (moreAnswers) {
+			assignment.clear();
 			iterationCount++;
 			moreAnswers = false;
-			potentialAnswers = new HashSet<Integer>();
-			try {
-				ResultSet rsPotentialAnswers = con.prepareStatement(q).executeQuery();
-				while (rsPotentialAnswers.next()) {
-					potentialAnswers.add(rsPotentialAnswers.getInt(1));
-				}
-			} catch (SQLException e) {
-				e.printStackTrace();
-			}
-
-			ExecCommand command = new ExecCommand();
 			start = System.currentTimeMillis();
 			command.executeCommand(new String[] { "./maxhs", filename }, "output.txt");
 			output = command.readOutput("output.txt");
 			time += (System.currentTimeMillis() - start);
-			assignment = Arrays.asList(output.replaceAll("\n", "").split(" "));
-			for (int answer : potentialAnswers) {
-				if (assignment.contains(Integer.toString(answer))) {
-					moreAnswers = true;
-					inconsistentAnswers.add(answer);
+			StringTokenizer st = new StringTokenizer(output.substring(1), " ");
+			while (st.hasMoreTokens())
+				assignment.add(Integer.parseInt(st.nextToken()));
+			try {
+				rsPotentialAnswers = psSelect.executeQuery();
+				wr = new BufferedWriter(new FileWriter(filename, true));
+				while (rsPotentialAnswers.next()) {
+					if (assignment.contains(rsPotentialAnswers.getInt(1))) {
+						wr.append(infinity + " -" + rsPotentialAnswers.getInt(1) + " 0 c I\n");
+						psDelete.setInt(1, rsPotentialAnswers.getInt(1));
+						psDelete.addBatch();
+						moreAnswers = true;
+					}
 				}
+				wr.close();
+				psDelete.executeBatch();
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
-			deleteInconsistentAdditionalAnswers(inconsistentAnswers);
-			if (moreAnswers)
-				changeFormula(inconsistentAnswers, filename, infinity);
+
 		}
 		System.out.println("MaxSAT Iterations: " + iterationCount);
-		buildFinalAnswers();
 		return time;
 	}
 
-	private void changeFormula(Set<Integer> inconsistentAnswers, String formulaFilename, int infinity) {
-		BufferedWriter wr;
-		try {
-			wr = new BufferedWriter(new FileWriter(formulaFilename, true));
-			for (int answer : inconsistentAnswers) {
-				wr.write(infinity + " " + (-1 * answer) + " 0 c I\n");
+	public long eliminatePotentialAnswers(String filename, int infinity) throws SQLException {
+		boolean moreAnswers = true;
+		BufferedWriter wr = null;
+		String output = "";
+		PreparedStatement psSelect = con.prepareStatement("SELECT FactID FROM ADDITIONAL_ANSWERS");
+		PreparedStatement psDelete = con.prepareStatement("DELETE FROM ADDITIONAL_ANSWERS WHERE FACTID = ?");
+		Set<Integer> assignment = new HashSet<Integer>();
+		int iterationCount = 0;
+		long start = 0, time = 0;
+		ExecCommand command = new ExecCommand();
+		while (moreAnswers) {
+			start = System.currentTimeMillis();
+			assignment.clear();
+			iterationCount++;
+			moreAnswers = false;
+			start = System.currentTimeMillis();
+			command.executeCommand(new String[] { "./maxhs", filename }, "output.txt");
+			output = command.readOutput("output.txt");
+			time += (System.currentTimeMillis() - start);
+			StringTokenizer st = new StringTokenizer(output.substring(1), " ");
+			while (st.hasMoreTokens())
+				assignment.add(Integer.parseInt(st.nextToken()));
+			try {
+				ResultSet rsSelect = psSelect.executeQuery();
+				wr = new BufferedWriter(new FileWriter(filename, true));
+				while (rsSelect.next()) {
+					if (assignment.contains(rsSelect.getInt(1))) {
+						wr.append(infinity + " -" + rsSelect.getInt(1) + " 0 c I\n");
+						psDelete.setInt(1, rsSelect.getInt(1));
+						psDelete.addBatch();
+						moreAnswers = true;
+					}
+				}
+				wr.close();
+				psDelete.executeBatch();
+			} catch (SQLException | IOException e) {
+				e.printStackTrace();
 			}
-			wr.close();
-		} catch (IOException e) {
-			e.printStackTrace();
 		}
-
+		System.out.println("Solvertime " + time);
+		System.out.println("MaxSAT Iterations: " + iterationCount);
+		return time;
 	}
 }

@@ -41,7 +41,7 @@ public class Test {
 		int size = 1000000;
 		SyntheticDataGenerator gen = new SyntheticDataGenerator();
 		for (int tada = 0; tada < 1; tada++) {
-			gen.generate(size);
+			gen.generate(size, 10);
 			System.out.println("DATA SIZE: " + size);
 			size += 100000;
 			for (File file : filesInFolder) {
@@ -68,11 +68,11 @@ public class Test {
 					return;
 				}
 				start = System.currentTimeMillis();
-				preprocessor.createWitnesses(false);
+				preprocessor.createWitnesses(false, schema);
 				System.out.println("Witnesses computed in " + timeElapsed() + "ms");
 				int totalRelevantFacts = preprocessor.createRelevantViews();
 				System.out.println("Relevant views created in " + timeElapsed() + "ms");
-				preprocessor.createWitnesses(true);
+				preprocessor.createWitnesses(true, schema);
 				System.out.println("IDs given to witnesses in " + timeElapsed() + "ms");
 				System.out
 						.println("Total Preprocessing done in " + (System.currentTimeMillis() - constantStart) + "ms");

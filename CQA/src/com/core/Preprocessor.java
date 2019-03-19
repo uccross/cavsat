@@ -4,6 +4,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.beans.Atom;
@@ -128,7 +132,7 @@ public class Preprocessor {
 		return false;
 	}
 
-	public void createWitnesses(boolean includeFactIDs) {
+	public void createWitnesses(boolean includeFactIDs, Schema schema) {
 		String prefix = "", relationName = "";
 		if (includeFactIDs)
 			relationName = "WITNESSES_WITH_FactID";
@@ -155,22 +159,41 @@ public class Preprocessor {
 		}
 		q = q.substring(0, q.length() - 1);
 
+		
 		q += " WHERE ";
 		// Forming join conditions
-		for (Atom first : query.getAtoms()) {
-			for (Atom second : query.getAtoms()) {
-				if (first.equals(second))
-					continue;
-				for (String attr1 : first.getVars()) {
-					for (String attr2 : second.getVars()) {
-						if (attr1.equals(attr2)) {
-							q += getAttributeFromQueryVar(first, attr1) + "=" + getAttributeFromQueryVar(second, attr2)
-									+ " AND ";
-						}
-					}
+		Map<String, List<String>> varAttrMap = new HashMap<String, List<String>>();
+		for (Atom atom : query.getAtoms()) {
+			Relation relation = schema.getRelationByName(atom.getName());
+			for (int i = 0; i < atom.getVars().size(); i++) {
+				String var = atom.getVars().get(i);
+				if (varAttrMap.containsKey(var)) {
+					varAttrMap.get(var).add(relation.getName() + "." + relation.getAttributes().get(i));
+				} else {
+					List<String> list = new ArrayList<String>();
+					list.add(relation.getName() + "." + relation.getAttributes().get(i));
+					varAttrMap.put(var, list);
+
+				}
+			}
+
+		}
+		for (String var : varAttrMap.keySet()) {
+			if (varAttrMap.get(var).size() > 1) {
+				String first = varAttrMap.get(var).get(0);
+				for (int i = 1; i < varAttrMap.get(var).size(); i++) {
+					q = q + first + "=" + varAttrMap.get(var).get(i) + " AND ";
 				}
 			}
 		}
+
+		/*
+		 * for (Atom first : query.getAtoms()) { for (Atom second : query.getAtoms()) {
+		 * if (first.equals(second)) continue; for (String attr1 : first.getVars()) {
+		 * for (String attr2 : second.getVars()) { if (attr1.equals(attr2)) { q +=
+		 * getAttributeFromQueryVar(first, attr1) + "=" +
+		 * getAttributeFromQueryVar(second, attr2) + " AND "; } } } } }
+		 */
 
 		if (query.isBoolean()) {
 			if (q.endsWith(" AND "))
@@ -179,28 +202,31 @@ public class Preprocessor {
 			if (!q.endsWith(" AND "))
 				q += " AND ";
 
-			q += "(";
-			for (String var : query.getFreeVars()) {
-				q += getAttributeFromQueryVar(null, var) + ",";
-			}
-			q = q.substring(0, q.length() - 1);
-			q += ")";
-			q += " NOT IN (SELECT * FROM ANS_FROM_CONS)";
+			
+			  q += "("; for (String var : query.getFreeVars()) { q +=
+			  getAttributeFromQueryVar(null, var) + ","; } q = q.substring(0, q.length() -
+			  1); q += ")"; q += " NOT IN (SELECT * FROM ANS_FROM_CONS)";
+			 
 
-			/*
-			 * q += "NOT EXISTS (SELECT 1 FROM ANS_FROM_CONS WHERE "; for (String var :
-			 * query.getFreeVars()) { String attr = getAttributeFromQueryVar(null, var); q
-			 * += attr + " = ANS_FROM_CONS." + attr.replaceAll("\\.", "_") + " AND "; } if
-			 * (q.endsWith(" AND ")) q = q.substring(0, q.length() - 5); q += ")";
-			 */
+			/*q += "NOT EXISTS (SELECT 1 FROM ANS_FROM_CONS WHERE ";
+			for (String var : query.getFreeVars()) {
+				String attr = getAttributeFromQueryVar(null, var);
+				q += attr + " = ANS_FROM_CONS." + attr.replaceAll("\\.", "_") + " AND ";
+			}
+			if (q.endsWith(" AND "))
+				q = q.substring(0, q.length() - 5);
+			q += ")";*/
+
 		}
 
 		try {
 			// con.prepareStatement("DROP TABLE IF EXISTS " + relationName + "
 			// CASCADE").execute();
-			// System.out.println(q);
+			System.out.println(q);
 			PreparedStatement psWitnesses = con.prepareStatement(q);
-			psWitnesses.execute();
+			System.out.println("formed preparedstatement");
+			psWitnesses.executeUpdate();
+			System.out.println("computed witnesses");
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
