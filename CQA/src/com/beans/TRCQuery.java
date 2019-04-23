@@ -1,3 +1,7 @@
+/*******************************************************************************
+ * Copyright 2019 Regents of the University of California. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be found in the LICENSE.txt file at the root of the project.
+ ******************************************************************************/
 package com.beans;
 
 import java.util.ArrayList;
@@ -152,35 +156,6 @@ public class TRCQuery {
 			this.tupleVar = tupleVar;
 		}
 	}
-
-	/*
-	 * public class Equality { private TupleVar left; private TupleVar right;
-	 * private String leftAttribute; private String rightAttribute;
-	 * 
-	 * public Equality(TupleVar left, TupleVar right, String leftAttribute, String
-	 * rightAttribute) { super(); this.left = left; this.right = right;
-	 * this.leftAttribute = leftAttribute; this.rightAttribute = rightAttribute; }
-	 * 
-	 * public TupleVar getLeft() { return left; }
-	 * 
-	 * public void setLeft(TupleVar left) { this.left = left; }
-	 * 
-	 * public TupleVar getRightRelation() { return right; }
-	 * 
-	 * public void setRightRelation(TupleVar right) { this.right = right; }
-	 * 
-	 * public String getLeftAttribute() { return leftAttribute; }
-	 * 
-	 * public void setLeftAttribute(String leftAttribute) { this.leftAttribute =
-	 * leftAttribute; }
-	 * 
-	 * public String getRightAttribute() { return rightAttribute; }
-	 * 
-	 * public void setRightAttribute(String rightAttribute) { this.rightAttribute =
-	 * rightAttribute; }
-	 * 
-	 * }
-	 */
 
 	public class Formula {
 		private Formula left;

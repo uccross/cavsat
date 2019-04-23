@@ -1,3 +1,7 @@
+/*******************************************************************************
+ * Copyright 2019 Regents of the University of California. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be found in the LICENSE.txt file at the root of the project.
+ ******************************************************************************/
 package com.util;
 
 import java.io.BufferedReader;
@@ -26,7 +30,7 @@ public class ProblemParser {
 			br = new BufferedReader(new FileReader(file));
 			String currentLine;
 			while ((currentLine = br.readLine()) != null) {
-				if(currentLine.startsWith("%") || currentLine.isEmpty())
+				if (currentLine.startsWith("%") || currentLine.isEmpty())
 					continue;
 				Query query = new Query();
 				query.setSyntax(currentLine);
@@ -134,10 +138,7 @@ public class ProblemParser {
 		for (String op : Constants.ops) {
 			if (expStr.contains(op)) {
 				parts = expStr.split(op);
-				Expression expObj = new Expression();
-				expObj.setVar1(parts[0]);
-				expObj.setVar2(parts[1]);
-				expObj.setOp(op);
+				Expression expObj = new Expression(parts[0], parts[1], op);
 				return expObj;
 			}
 		}
