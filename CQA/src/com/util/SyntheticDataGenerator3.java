@@ -140,7 +140,7 @@ public class SyntheticDataGenerator3 {
 	}
 
 	private void createRelation(Atom atom, Connection con, boolean includeFactID) throws SQLException {
-		con.prepareStatement("DROP TABLE IF EXISTS " + atom.getName()).execute();
+		con.prepareStatement("DROP TABLE IF EXISTS " + atom.getName() +" CASCADE").execute();
 		String createQuery = "CREATE TABLE " + atom.getName() + " (";
 		String prefix = "";
 		for (int i = 0; i < atom.getVars().size(); i++) {

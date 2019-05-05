@@ -10,4 +10,5 @@ public class Constants {
 	public static final String minimalViolations = "MINIMAL_VIOLATIONS";
 	public static final String minimalWitnesses = "MINIMAL_WITNESSES";
 	public static final String[] ops = { " = ", " != ", " < ", " > ", " <= ", " >= " };
+	public static final String graphStyleSheetURL = "url('C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\lingeling-master\\stylesheet.css')";
 }
