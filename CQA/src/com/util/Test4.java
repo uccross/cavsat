@@ -25,7 +25,7 @@ public class Test4 {
 
 		for (Query q : uCQ) {
 			SyntheticDataGenerator3 gen = new SyntheticDataGenerator3();
-			gen.generateThirdColumnValues(100000);
+			//gen.generateThirdColumnValues(100000);
 			gen.generateConsistent(con, q, 950000, 0.15, true);
 			gen.addInconsistency(con, schema, q, 100000, 2);
 			int totalFacts = gen.adjustFactIDs(con, q);

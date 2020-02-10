@@ -30,20 +30,20 @@ public class RewritabilityExperiment {
 
 	public static void main(String[] args) throws SQLException {
 		ProblemParser pp = new ProblemParser();
-		List<Query> uCQ = pp.parseUCQ(args[1]);
-		Schema schema = pp.parseSchema(args[0]);
-		Connection con = new DBEnvironment().getConnection();
-		SyntheticDataGenerator3 gen = new SyntheticDataGenerator3();
-		for (Query q : uCQ) {
-			//gen.generateThirdColumnValues(1000);
-			//gen.generateConsistent(con, q, 9500, 0.15, false);
-			//gen.addInconsistency(con, schema, q, 1000, 2);
-			q.print();
-			doExperiment(q, schema, con);
+		List<Query> uCQ = pp.parseUCQ("C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\MaxHS-3.0\\build\\release\\bin\\toyquery1.txt");
+		Schema schema = pp.parseSchema("C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\MaxHS-3.0\\build\\release\\bin\\schema.txt");
+		//Connection con = new DBEnvironment().getConnection();
+		//System.out.println("Got connection");
+		//SyntheticDataGenerator3 gen = new SyntheticDataGenerator3();
+		for (Query query : uCQ) {
+			//gen.generateData(con, schema, query);
+			query.print();
+			doExperiment(query, schema, null, 2);
 		}
 	}
 
-	public static void doExperiment(Query query, Schema schema, Connection con) throws SQLException {
+	public static void doExperiment(Query query, Schema schema, Connection con, long timeoutInMinutes)
+			throws SQLException {
 		start = System.currentTimeMillis();
 		AttackGraphBuilder builder = new AttackGraphBuilder(query);
 		if (!builder.isQueryFO())
@@ -55,8 +55,7 @@ public class RewritabilityExperiment {
 		String sqlQuery = certainRewriter.getCertainRewritingSQL(query, schema);
 		System.out.println(sqlQuery);
 		System.out.println("Rewriting done in " + timeElapsed() + "ms");
-if(true)
-	return;
+if(true)return;
 		final PreparedStatement ps = con.prepareStatement(sqlQuery);
 		final Runnable stuffToDo = new Thread() {
 			@Override
@@ -78,9 +77,9 @@ if(true)
 		executor.shutdown();
 
 		try {
-			future.get(120, TimeUnit.MINUTES);
+			future.get(timeoutInMinutes, TimeUnit.MINUTES);
 		} catch (TimeoutException | InterruptedException | ExecutionException te) {
-			System.err.println("30 mins timeout");
+			System.err.println(timeoutInMinutes + " minutes timeout");
 			ps.cancel();
 			ps.close();
 		}
@@ -96,7 +95,6 @@ if(true)
 }
 
 class InterruptTimerTask extends TimerTask {
-
 	private Thread theTread;
 
 	public InterruptTimerTask(Thread theTread) {
@@ -107,5 +105,4 @@ class InterruptTimerTask extends TimerTask {
 	public void run() {
 		theTread.interrupt();
 	}
-
 }

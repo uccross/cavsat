@@ -165,9 +165,9 @@ public class Encoder3 {
 			attrs += getAttributeFromQueryVar(null, var) + ",";
 		}
 		attrs = attrs.substring(0, attrs.length() - 1);
-		String q = "CREATE TABLE ADDITIONAL_ANSWERS AS SELECT " + attrs + "," + totalFacts + "+"
-				+ " ROW_NUMBER() OVER (ORDER BY 1) AS FactID";
-		q += " FROM WITNESSES_WITH_FACTID GROUP BY " + attrs;
+		String q = "SELECT " + attrs + "," + totalFacts + "+" + " ROW_NUMBER() OVER (ORDER BY "
+				+ getAttributeFromQueryVar(null, query.getFreeVars().get(0)) + ") AS FactID";
+		q += " INTO ADDITIONAL_ANSWERS FROM WITNESSES_WITH_FACTID GROUP BY " + attrs;
 		try {
 			con.prepareStatement("DROP TABLE IF EXISTS ADDITIONAL_ANSWERS").execute();
 			PreparedStatement psAdditionalAnswers = con.prepareStatement(q);

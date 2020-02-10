@@ -40,7 +40,7 @@ public class ConQuerRewriter {
 				"C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\MaxHS-3.0\\build\\release\\bin\\toyquery1.txt")
 				.get(0).getFuxmanQuery();
 		Schema schema = new ProblemParser().parseSchema(
-				"C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\MaxHS-3.0\\build\\release\\bin\\toyschema1.txt");
+				"C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\MaxHS-3.0\\build\\release\\bin\\schema.txt");
 		SQLQuery query = new ProblemParser2().parseSQLQueryFromFOSyntax(q.getSyntax(), schema);
 
 		ConQuerRewriter rewriter = new ConQuerRewriter(q, new DBEnvironment().getConnection());
@@ -125,8 +125,8 @@ public class ConQuerRewriter {
 				+ ")";
 		System.out.println("\nRewriting:");
 		System.out.println(rewriting);
-		computeConsistentAnswers("CREATE VIEW CANDIDATES AS (" + candidates.getSQLSyntax() + ")",
-				"CREATE VIEW FILTER AS (" + filter + ")", "CREATE TABLE FINAL_ANSWERS AS (" + rewriting + ")");
+		//computeConsistentAnswers("CREATE VIEW CANDIDATES AS (" + candidates.getSQLSyntax() + ")",
+		//		"CREATE VIEW FILTER AS (" + filter + ")", "CREATE TABLE FINAL_ANSWERS AS (" + rewriting + ")");
 	}
 
 	private String getLOJ(Map<FuxmanAtom, List<FuxmanAtom>> T, Schema schema) {

@@ -21,17 +21,11 @@ import com.beans.Schema;
 public class SyntheticDataGenerator3 {
 	private List<String> thirdColumnValues;
 
-	public static void main(String[] args) throws SQLException {
-		List<Query> uCQ = new ProblemParser().parseUCQ(
-				"C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\MaxHS-3.0\\build\\release\\bin\\toyquery1.txt");
-		Schema schema = new ProblemParser().parseSchema(
-				"C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\MaxHS-3.0\\build\\release\\bin\\toyschema1.txt");
-		Connection con = new DBEnvironment().getConnection();
-		SyntheticDataGenerator3 gen = new SyntheticDataGenerator3();
-		gen.generateThirdColumnValues(100000);
-		gen.generateConsistent(con, uCQ.get(0), 975000, 0.2, true);
-		gen.addInconsistency(con, schema, uCQ.get(0), 50000, 2);
-		gen.adjustFactIDs(con, uCQ.get(0));
+	public void generateData(Connection con, Schema schema, Query query) throws SQLException {
+		generateThirdColumnValues(100000);
+		generateConsistent(con, query, 975000, 0.2, true);
+		addInconsistency(con, schema, query, 50000, 2);
+		adjustFactIDs(con, query);
 	}
 
 	public SyntheticDataGenerator3() {
@@ -140,7 +134,7 @@ public class SyntheticDataGenerator3 {
 	}
 
 	private void createRelation(Atom atom, Connection con, boolean includeFactID) throws SQLException {
-		con.prepareStatement("DROP TABLE IF EXISTS " + atom.getName() +" CASCADE").execute();
+		con.prepareStatement("DROP TABLE IF EXISTS " + atom.getName() + " CASCADE").execute();
 		String createQuery = "CREATE TABLE " + atom.getName() + " (";
 		String prefix = "";
 		for (int i = 0; i < atom.getVars().size(); i++) {

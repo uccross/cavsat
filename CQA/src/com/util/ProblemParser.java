@@ -32,6 +32,7 @@ public class ProblemParser {
 			while ((currentLine = br.readLine()) != null) {
 				if (currentLine.startsWith("%") || currentLine.isEmpty())
 					continue;
+				System.out.println(currentLine);
 				Query query = new Query();
 				query.setSyntax(currentLine);
 				String parts[] = currentLine.split(":");

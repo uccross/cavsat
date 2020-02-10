@@ -191,16 +191,16 @@ public class AnswersComputer {
 		String output = "";
 		Set<Integer> assignment = new HashSet<Integer>();
 		ResultSet rsPotentialAnswers = null;
-		int iterationCount = -1;
+		int iterationCount = 0;
 		long time = 0, start = 0;
 		ExecCommand command = new ExecCommand();
 		while (moreAnswers) {
 			assignment.clear();
-			iterationCount++;
 			moreAnswers = false;
 			start = System.currentTimeMillis();
 			command.executeCommand(new String[] { "./maxhs", filename }, "output.txt");
 			output = command.readOutput("output.txt");
+			iterationCount++;
 			time += (System.currentTimeMillis() - start);
 			StringTokenizer st = new StringTokenizer(output.substring(1), " ");
 			while (st.hasMoreTokens())

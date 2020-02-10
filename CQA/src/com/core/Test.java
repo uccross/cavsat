@@ -42,7 +42,7 @@ public class Test {
 		}
 		Schema schema = pp.parseSchema("schema.txt");
 		Connection con = new DBEnvironment().getConnection();
-		int size = 1000000;
+		int size = 100000;
 		SyntheticDataGenerator gen = new SyntheticDataGenerator();
 		for (int tada = 0; tada < 1; tada++) {
 			gen.generate(size, 10);
@@ -57,7 +57,7 @@ public class Test {
 				// query.print();
 				// schema.print();
 				Preprocessor preprocessor = new Preprocessor(schema, query, con);
-				start = System.currentTimeMillis();
+				
 				preprocessor.dropAllTables();
 				// System.out.println("All tables dropped in " + timeElapsed() + "ms");
 				preprocessor.createIndexesOnKeys();
@@ -65,6 +65,7 @@ public class Test {
 				long constantStart = System.currentTimeMillis();
 				preprocessor.createKeysViews();
 				// System.out.println("Keys table done in " + timeElapsed() + "ms");
+				start = System.currentTimeMillis();
 				preprocessor.createAnsFromCons();
 				System.out.println("cons ans done in " + timeElapsed() + "ms");
 				if (query.isBoolean() && preprocessor.checkBooleanConsAnswer()) {

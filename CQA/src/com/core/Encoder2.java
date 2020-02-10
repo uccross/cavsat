@@ -53,24 +53,28 @@ public class Encoder2 {
 
 	public static void main(String args[]) {
 		ProblemParser pp = new ProblemParser();
-		Schema schema = pp.parseSchema(
-				"C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\MaxHS-3.0\\build\\release\\bin\\dc-foodschema.txt");
+		Schema schema = pp.parseSchema(args[0]);
 		schema.print();
-		List<Query> uCQ = pp.parseUCQ(
-				"C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\MaxHS-3.0\\build\\release\\bin\\dc-foodquery.txt");
-		Encoder2 encoder = new Encoder2(schema, uCQ, new DBEnvironment().getConnection(),
-				"C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\MaxHS-3.0\\build\\release\\bin\\dc-formula.txt");
+		Connection con = new DBEnvironment().getConnection();
+		List<Query> uCQ = pp.parseUCQ(args[1]);
+		Encoder2 encoder = new Encoder2(schema, uCQ, con, "dc-formula.txt");
 		encoder.createAlphaClausesInMemory();
+		encoder.createBetaClausesInMemory();
 		encoder.createGammaClausesInMemory();
 		encoder.createThetaClausesInMemory();
-		encoder.createBetaClausesInMemory();
 		try {
 			encoder.br.close(); // Don't forget
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		encoder.writeFinalFormulaFile(
-				"C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\MaxHS-3.0\\build\\release\\bin\\dc-formula.txt");
+		encoder.writeFinalFormulaFile("dc-formula.txt");
+
+		AnswersComputer computer = new AnswersComputer(con);
+		try {
+			computer.eliminatePotentialAnswers2("dc-formula.txt", encoder.clauseCount + 1);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 	}
 
 	public int getClauseCount() {
@@ -272,6 +276,7 @@ public class Encoder2 {
 				prefix = " UNION ";
 			}
 			ResultSet rs = con.prepareStatement(sqlQuery).executeQuery();
+			System.out.println(sqlQuery);
 			while (rs.next()) {
 				pVar = potentialAnswers.get(rs.getString(2));
 				if (null == pVar) {

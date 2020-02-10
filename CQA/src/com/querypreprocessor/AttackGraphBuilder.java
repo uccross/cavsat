@@ -39,6 +39,7 @@ public class AttackGraphBuilder {
 		List<Query> uCQ = new ProblemParser().parseUCQ(
 				"C:\\Users\\Akhil\\OneDrive - ucsc.edu\\Abhyas\\CQA\\MaxHS-3.0\\build\\release\\bin\\toyquery1.txt");
 		uCQ.get(0).print();
+		new AttackGraphBuilder(uCQ.get(0)).isQueryFO();
 	}
 
 	public AttackGraphBuilder(Query query) {
@@ -93,7 +94,7 @@ public class AttackGraphBuilder {
 	public boolean isQueryFO() {
 		initialize();
 		buildAttackGraph();
-		// drawAttackGraph();
+		drawAttackGraph();
 		return this.FO;
 	}
 
@@ -205,6 +206,29 @@ public class AttackGraphBuilder {
 		}
 		for (int i = 0; i < m; i++) {
 			System.out.println("keyco[" + query.getVarByPosition(i) + "]: " + this.keyco.get(i));
+		}
+	}
+
+	public void getJSONGraph() {
+		SingleGraph graph = new SingleGraph("AttackGraph");
+		for (Atom atom : query.getAtoms()) {
+			Node node = graph.addNode(atom.getName() + atom.getVars());
+			node.addAttribute("ui.label", atom.getName() + atom.getVars());
+		}
+		for (int i = 0; i < n; i++) {
+			for (int j = 0; j < n; j++) {
+				if (attack[i][j]) {
+					Atom atom1 = query.getAtomByPosition(i);
+					Atom atom2 = query.getAtomByPosition(j);
+					try {
+						Edge edge = graph.addEdge("E" + i + "," + j, atom1.getName() + atom1.getVars(),
+								atom2.getName() + atom2.getVars(), true);
+						edge.addAttribute("ui.label", "E" + i + "," + j);
+					} catch (Exception e) {
+
+					}
+				}
+			}
 		}
 	}
 

@@ -7,7 +7,6 @@ package com.util;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.Properties;
 
 public class DBEnvironment {
 	private static String PostgresURL = "jdbc:postgresql://localhost/cqa1";
@@ -18,29 +17,38 @@ public class DBEnvironment {
 	private static String MySQLUsername = "root";
 	private static String MySQLPassword = "mysql123";
 
+	private static String AWSSQLServerURL = "jdbc:sqlserver://rds-cqa-sqlserver.cnoykvezfq6g.us-east-2.rds.amazonaws.com:1433;databaseName=kw-rewriting-experiment";
+	private static String AWSSQLServerUsername = "akadixit";
+	private static String AWSSQLServerPassword = "sqlserver123";
+
+	private static String LocalSQLServerURL = "jdbc:sqlserver://DESKTOP-T2DFRH7:1433;databaseName=kw-rewriting-experiment";
+	private static String LocalSQLServerUsername = "akadixit";
+	private static String LocalSQLServerPassword = "sqlserver123";
+
 	public Connection getConnection() {
-		return getPostgresConnection(PostgresURL, PostgresUsername, PostgresPassword);
-	}
-
-	public Connection getMySQLConnection() {
 		try {
-			Class.forName("com.mysql.cj.jdbc.Driver");
-			return DriverManager.getConnection(MySQLURL, MySQLUsername, MySQLPassword);
-		} catch (ClassNotFoundException | SQLException e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
-
-	public Connection getPostgresConnection(String url, String username, String password) {
-		try {
-			Properties props = new Properties();
-			props.setProperty("user", username);
-			props.setProperty("password", password);
-			return DriverManager.getConnection(url, props);
+			//return getLocalSQLServerConnection();
+			 return getPostgresConnection();
+			// return getMySQLConnection();
 		} catch (SQLException e) {
 			e.printStackTrace();
 			return null;
 		}
+	}
+
+	public Connection getMySQLConnection() throws SQLException {
+		return DriverManager.getConnection(MySQLURL, MySQLUsername, MySQLPassword);
+	}
+
+	public Connection getAWSSQLServerConnection() throws SQLException {
+		return DriverManager.getConnection(AWSSQLServerURL, AWSSQLServerUsername, AWSSQLServerPassword);
+	}
+
+	public Connection getLocalSQLServerConnection() throws SQLException {
+		return DriverManager.getConnection(LocalSQLServerURL, LocalSQLServerUsername, LocalSQLServerPassword);
+	}
+
+	public Connection getPostgresConnection() throws SQLException {
+		return DriverManager.getConnection(PostgresURL, PostgresUsername, PostgresPassword);
 	}
 }
