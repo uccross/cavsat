@@ -1,0 +1,26 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/ReactJS/node_modules
+/ReactJS/.pnp
+/ReactJS/.pnp.js
+
+# testing
+/ReactJS/coverage
+
+# production
+/ReactJS/build
+
+# misc
+ReactJS/.DS_Store
+ReactJS/.env.local
+ReactJS/.env.development.local
+ReactJS/.env.test.local
+ReactJS/.env.production.local
+
+ReactJS/npm-debug.log*
+ReactJS/yarn-debug.log*
+ReactJS/yarn-error.log*
+
+# HTTPS certificate private key
+ReactJS/localhost.key
