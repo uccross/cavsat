@@ -155,10 +155,10 @@ public class SQLQuery {
 		sqlSyntax += "FROM " + String.join(",", this.from) + "\n";
 		if (!whereConditions.isEmpty())
 			sqlSyntax += "WHERE " + String.join(" AND ", whereConditions) + "\n";
-		if (!this.orderingAttributes.isEmpty())
-			sqlSyntax += "ORDER BY " + String.join(",", this.orderingAttributes) + "\n";
 		if (!this.groupingAttributes.isEmpty())
 			sqlSyntax += "GROUP BY " + String.join(",", this.groupingAttributes) + "\n";
+		if (!this.orderingAttributes.isEmpty())
+			sqlSyntax += "ORDER BY " + String.join(",", this.orderingAttributes) + "\n";
 		return sqlSyntax;
 	}
 

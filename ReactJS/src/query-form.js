@@ -12,7 +12,7 @@ class QueryForm extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      schemaName: ""
+      schemaName: "",
     };
   }
 
@@ -21,7 +21,7 @@ class QueryForm extends Component {
     if (schemaName === null || schemaName === "") return;
     const dropDown = document.getElementById("selectSchema");
     this.setState({
-      schemaName: schemaName
+      schemaName: schemaName,
     });
     for (var i = 0; i < dropDown.options.length; i++) {
       if (dropDown.options[i].value === schemaName) {
@@ -44,9 +44,10 @@ class QueryForm extends Component {
       satModuleRuntimeAnalysis: undefined,
       conQuerRuntimeAnalysis: undefined,
       kwRuntimeAnalysis: undefined,
-      queryAnalysis: undefined
+      queryAnalysis: undefined,
     });
     await this.analyseQuery();
+    return;
     var evalStrategies = document.getElementsByName("eval-strategy");
     for (var i = 0; i < evalStrategies.length; i++) {
       if (evalStrategies[i].checked) {
@@ -75,11 +76,11 @@ class QueryForm extends Component {
       method: "POST",
       headers: {
         Accept: "application/json",
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       body: JSON.stringify({
-        dbEnv: this.props.dbEnv
-      })
+        dbEnv: this.props.dbEnv,
+      }),
     });
   }
 
@@ -88,18 +89,18 @@ class QueryForm extends Component {
       method: "POST",
       headers: {
         Accept: "application/json",
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         dbEnv: this.props.dbEnv,
         schemaName: this.state.schemaName,
         querySyntax: this.state.querySyntax,
-        queryLanguage: this.state.queryLanguage
-      })
+        queryLanguage: this.state.queryLanguage,
+      }),
     });
     const responseBody = await response.json();
     this.setState({
-      satModuleRuntimeAnalysis: responseBody.runningTimeAnalysis
+      satModuleRuntimeAnalysis: responseBody.runningTimeAnalysis,
     });
     if (
       this.state.consAnsPreview === null ||
@@ -107,7 +108,7 @@ class QueryForm extends Component {
       this.state.consAnsPreview === -1
     ) {
       this.setState({
-        consAnsPreview: responseBody
+        consAnsPreview: responseBody,
       });
     }
   }
@@ -117,17 +118,17 @@ class QueryForm extends Component {
       method: "POST",
       headers: {
         Accept: "application/json",
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         dbEnv: this.props.dbEnv,
         schemaName: this.state.schemaName,
-        conQuerSQLRewriting: this.state.queryAnalysis.conquerRewriting
-      })
+        conQuerSQLRewriting: this.state.queryAnalysis.conquerRewriting,
+      }),
     });
     const responseBody = await response.json();
     this.setState({
-      conQuerRuntimeAnalysis: responseBody.runningTimeAnalysis
+      conQuerRuntimeAnalysis: responseBody.runningTimeAnalysis,
     });
     if (
       this.state.consAnsPreview === null ||
@@ -135,7 +136,7 @@ class QueryForm extends Component {
       this.state.consAnsPreview === -1
     ) {
       this.setState({
-        consAnsPreview: responseBody
+        consAnsPreview: responseBody,
       });
     }
   }
@@ -145,17 +146,17 @@ class QueryForm extends Component {
       method: "POST",
       headers: {
         Accept: "application/json",
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         dbEnv: this.props.dbEnv,
         schemaName: this.state.schemaName,
-        kwSQLRewriting: this.state.queryAnalysis.kwRewriting.sql
-      })
+        kwSQLRewriting: this.state.queryAnalysis.kwRewriting.sql,
+      }),
     });
     const responseBody = await response.json();
     this.setState({
-      kwRuntimeAnalysis: responseBody.runningTimeAnalysis
+      kwRuntimeAnalysis: responseBody.runningTimeAnalysis,
     });
     if (
       this.state.consAnsPreview === null ||
@@ -163,7 +164,7 @@ class QueryForm extends Component {
       this.state.consAnsPreview === -1
     ) {
       this.setState({
-        consAnsPreview: responseBody
+        consAnsPreview: responseBody,
       });
     }
   }
@@ -173,7 +174,7 @@ class QueryForm extends Component {
       method: "POST",
       headers: {
         Accept: "application/json",
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         dbEnv: this.props.dbEnv,
@@ -181,15 +182,15 @@ class QueryForm extends Component {
         querySyntax: document.getElementById("querySyntax").value,
         queryLanguage: document.querySelector(
           'input[name="inlineRadioOptions"]:checked'
-        ).value
-      })
+        ).value,
+      }),
     });
     const responseBody = await response.json();
     this.setState({
-      potRuntimeAnalysis: responseBody.runningTimeAnalysis
+      potRuntimeAnalysis: responseBody.runningTimeAnalysis,
     });
     this.setState({
-      potAnsPreview: responseBody
+      potAnsPreview: responseBody,
     });
   }
 
@@ -198,7 +199,7 @@ class QueryForm extends Component {
       method: "POST",
       headers: {
         Accept: "application/json",
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         dbEnv: this.props.dbEnv,
@@ -206,12 +207,12 @@ class QueryForm extends Component {
         querySyntax: document.getElementById("querySyntax").value,
         queryLanguage: document.querySelector(
           'input[name="inlineRadioOptions"]:checked'
-        ).value
-      })
+        ).value,
+      }),
     });
     const responseBody = await response.json();
     this.setState({
-      queryAnalysis: responseBody
+      queryAnalysis: responseBody,
     });
   }
 

@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -122,30 +123,35 @@ public class ProblemParser {
 
 	public static SQLQuery parseSQLQuery(String sqlSyntax, Schema schema) {
 		SQLQuery query = new SQLQuery();
-		List<String> tableNames, selectAttributes, whereConditions = new ArrayList<String>();
+		List<String> selectAttributes, whereConditions = new ArrayList<String>();
+		int i = 1;
 		String upperSQLSyntax = sqlSyntax.toUpperCase();
 		if (upperSQLSyntax.contains("DISTINCT")) {
 			query.setSelectDistinct(true);
 			upperSQLSyntax.replaceAll("DISTINCT", "");
 		}
-		tableNames = Arrays.asList(upperSQLSyntax.split(" FROM ")[1].split(" WHERE ")[0].replaceAll(" ", "").split(","))
-				.stream().map(obj -> ((String) obj).replaceAll(" ", "")).collect(Collectors.toList());
-		query.setFrom(tableNames);
-		selectAttributes = Arrays
-				.asList(upperSQLSyntax.split("SELECT ")[1].split(" FROM ")[0].replaceAll(" ", "").split(",")).stream()
-				.map(obj -> obj.replaceAll(" ", "")).collect(Collectors.toList());
-		for (String attribute : selectAttributes) {
-			if (attribute.matches("^(sum|avg|min|max|count)\\(.+\\)")) {
-				String[] parts = attribute.split("[()]");
-				query.getAggFunctions().add(parts[0]);
-				query.getAggAttributes().add(parts[1]);
+
+		List<String> parts = Arrays.asList(upperSQLSyntax.split("(SELECT|FROM|WHERE|GROUP BY|ORDER BY)")).stream()
+				.map(str -> str.replaceAll(" ", "")).collect(Collectors.toList());
+
+		selectAttributes = Arrays.asList(parts.get(i++).split(",")).stream().map(str -> str.replaceAll(" ", ""))
+				.collect(Collectors.toList());
+		ListIterator<String> lit = selectAttributes.listIterator();
+		while (lit.hasNext()) {
+			String attribute = lit.next();
+			if (attribute.matches("^(SUM|AVG|MIN|MAX|COUNT)\\(.+\\)")) {
+				String[] subparts = attribute.split("[()]");
+				query.getAggFunctions().add(subparts[0]);
+				query.getAggAttributes().add(subparts[1]);
+				lit.remove();
 			}
 		}
-		for (int i = 0; i < query.getAggFunctions().size(); i++)
-			selectAttributes.remove(query.getAggFunctions().get(i) + "(" + query.getAggAttributes().get(i) + ")");
 		query.setSelect(selectAttributes);
+		query.setFrom(Arrays.asList(parts.get(i++).split(",")).stream().map(str -> str.replaceAll(" ", ""))
+				.collect(Collectors.toList()));
+
 		if (upperSQLSyntax.contains(" WHERE ")) {
-			String conditions = upperSQLSyntax.substring(upperSQLSyntax.indexOf(" WHERE ") + 7);
+			String conditions = parts.get(i++);
 			int count = 0;
 			int andFinder = 0;
 			StringBuilder sb = new StringBuilder("");
@@ -179,8 +185,14 @@ public class ProblemParser {
 				whereConditions.add(sb.toString());
 		}
 		query.setWhereConditions(whereConditions);
+
+		if (upperSQLSyntax.contains(" GROUP BY "))
+			query.setGroupingAttributes(Arrays.asList(parts.get(i++).split(",")).stream()
+					.map(str -> str.replaceAll(" ", "")).collect(Collectors.toList()));
+
 		if (upperSQLSyntax.contains("ORDER BY"))
-			query.setOrderingAttributes(Arrays.asList(upperSQLSyntax.split("ORDER BY")[1].split(",")));
+			query.setOrderingAttributes(Arrays.asList(parts.get(i++).split(",")).stream()
+					.map(str -> str.replaceAll(" ", "")).collect(Collectors.toList()));
 		return query;
 	}
 

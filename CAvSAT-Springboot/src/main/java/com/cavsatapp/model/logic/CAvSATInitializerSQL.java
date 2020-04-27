@@ -94,7 +94,7 @@ public class CAvSATInitializerSQL {
 		}
 		ansFromConsQuery.setWhereConditions(newConditions);
 		ansFromConsQuery.setSelectDistinct(true);
-		System.out.println(ansFromConsQuery.getSQLSyntax(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME));
+		//System.out.println(ansFromConsQuery.getSQLSyntax(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME));
 		con.prepareStatement(ansFromConsQuery.getSQLSyntax(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME)).execute();
 	}
 
