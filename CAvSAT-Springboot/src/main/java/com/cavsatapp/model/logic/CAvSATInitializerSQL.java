@@ -46,47 +46,47 @@ public class CAvSATInitializerSQL {
 		}
 	}
 
-	public void createKeysTables(Set<Relation> relations, Connection con) {
-		try {
-			for (Relation r : relations) {
-				String q = sqlQueriesImpl.getCreateKeysTableQuery(r.getName(),
-						r.getAttributesFromIndexesCSV(r.getKeyAttributes(), ""));
-				PreparedStatement psKeys = con.prepareStatement(q);
-				psKeys.execute();
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-	}
-
-	public void createAnsFromCons(SQLQuery query, Schema schema, Connection con) throws SQLException {
-		SQLQuery ansFromConsQuery = new SQLQuery(query);
-		for (Relation r : schema.getRelationsByNames(new HashSet<String>(query.getFrom()))) {
-			Set<String> innerWhereConditions = new HashSet<String>();
-			for (String keyAttribute : r.getKeyAttributesList()) {
-				innerWhereConditions.add(r.getName() + "." + keyAttribute + "=" + Constants.CAvSAT_KEYS_TABLE_PREFIX
-						+ r.getName() + "." + keyAttribute);
-			}
-			ansFromConsQuery.getWhereConditions()
-					.add("NOT EXISTS (SELECT 1 FROM " + Constants.CAvSAT_KEYS_TABLE_PREFIX + r.getName() + " WHERE "
-							+ innerWhereConditions.stream().collect(Collectors.joining(" AND ")) + ")");
-		}
-		ansFromConsQuery.setSelectDistinct(true);
-		System.out.println(ansFromConsQuery.getSQLSyntax(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME));
-		con.prepareStatement(ansFromConsQuery.getSQLSyntax(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME)).execute();
-	}
+	/*
+	 * public void createKeysTables(Set<Relation> relations, Connection con) { try {
+	 * for (Relation r : relations) { String q =
+	 * sqlQueriesImpl.getCreateKeysTableQuery(r.getName(),
+	 * r.getAttributesFromIndexesCSV(r.getKeyAttributes(), "")); PreparedStatement
+	 * psKeys = con.prepareStatement(q); psKeys.execute(); } } catch (SQLException
+	 * e) { e.printStackTrace(); } }
+	 * 
+	 * public void createAnsFromCons(SQLQuery query, Schema schema, Connection con)
+	 * throws SQLException { SQLQuery ansFromConsQuery = new SQLQuery(query); for
+	 * (Relation r : schema.getRelationsByNames(new
+	 * HashSet<String>(query.getFrom()))) { Set<String> innerWhereConditions = new
+	 * HashSet<String>(); for (String keyAttribute : r.getKeyAttributesList()) {
+	 * innerWhereConditions.add(r.getName() + "." + keyAttribute + "=" +
+	 * Constants.CAvSAT_KEYS_TABLE_PREFIX + r.getName() + "." + keyAttribute); }
+	 * ansFromConsQuery.getWhereConditions() .add("NOT EXISTS (SELECT 1 FROM " +
+	 * Constants.CAvSAT_KEYS_TABLE_PREFIX + r.getName() + " WHERE " +
+	 * innerWhereConditions.stream().collect(Collectors.joining(" AND ")) + ")"); }
+	 * ansFromConsQuery.setSelectDistinct(true);
+	 * System.out.println(ansFromConsQuery.getSQLSyntax(Constants.
+	 * CAvSAT_ANS_FROM_CONS_TABLE_NAME));
+	 * con.prepareStatement(ansFromConsQuery.getSQLSyntax(Constants.
+	 * CAvSAT_ANS_FROM_CONS_TABLE_NAME)).execute(); }
+	 */
 
 	public void createAnsFromConsNew(SQLQuery query, Schema schema, Connection con) throws SQLException {
 		SQLQuery ansFromConsQuery = new SQLQuery(query);
 		ansFromConsQuery.setFrom(query.getFrom().stream()
 				.map(relationName -> Constants.CAvSAT_CONS_TABLE_PREFIX + relationName).collect(Collectors.toList()));
-		ansFromConsQuery.setSelect(query.getSelect().stream()
-				.map(attribute -> Constants.CAvSAT_CONS_TABLE_PREFIX + attribute).collect(Collectors.toList()));
+		ansFromConsQuery
+				.setSelect(
+						query.getSelect().stream()
+								.map(attribute -> attribute + " AS "
+										+ (attribute.matches("^(SUM|AVG|MIN|MAX|COUNT)\\(.+\\)")
+												? attribute.split("[()]")[0]
+												: attribute.replaceAll("\\.", "_")))
+								.collect(Collectors.toList()));
 		List<String> newConditions = new ArrayList<String>();
 		for (String condition : query.getWhereConditions()) {
 			String newCondition = condition;
 			for (String relationName : query.getFrom()) {
-				System.out.println(relationName + " " + condition);
 				newCondition = newCondition.replaceAll(relationName + "\\.",
 						Constants.CAvSAT_CONS_TABLE_PREFIX + relationName + "\\.");
 			}
@@ -94,7 +94,6 @@ public class CAvSATInitializerSQL {
 		}
 		ansFromConsQuery.setWhereConditions(newConditions);
 		ansFromConsQuery.setSelectDistinct(true);
-		//System.out.println(ansFromConsQuery.getSQLSyntax(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME));
 		con.prepareStatement(ansFromConsQuery.getSQLSyntax(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME)).execute();
 	}
 
@@ -117,8 +116,6 @@ public class CAvSATInitializerSQL {
 					.collect(Collectors.joining(",")));
 		}
 		witnessQuery.setSelect(selectAttributes);
-		// System.out.println("witnesses:\n" +
-		// witnessQuery.getSQLSyntax(Constants.CAvSAT_WITNESSES_TABLE_NAME));
 		con.prepareStatement(witnessQuery.getSQLSyntax(Constants.CAvSAT_WITNESSES_TABLE_NAME)).execute();
 	}
 

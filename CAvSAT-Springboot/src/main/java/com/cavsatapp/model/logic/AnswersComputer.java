@@ -88,41 +88,6 @@ public class AnswersComputer {
 				+ ") a").execute();
 	}
 
-	/*
-	 * public String computePotentialAnswersFromFOQuery(Schema schema, Query query,
-	 * CAvSATSQLQueries sqlQueriesImpl) throws SQLException, JsonProcessingException
-	 * { List<String> selectAttributes = new ArrayList<String>(); Set<String>
-	 * fromTables = new HashSet<String>(); Set<String> whereConditions = new
-	 * HashSet<String>();
-	 * 
-	 * for (Atom atom : query.getAtoms()) { fromTables.add(atom.getName()); } for
-	 * (String var : query.getFreeVars()) { String attribute =
-	 * query.getAttributeFromVar(schema, null, var, -1);
-	 * selectAttributes.add(attribute); }
-	 * 
-	 * // Forming join conditions Map<String, List<String>> varAttrMap = new
-	 * HashMap<String, List<String>>(); for (Atom atom : query.getAtoms()) {
-	 * Relation relation = schema.getRelationByName(atom.getName()); for (int i = 0;
-	 * i < atom.getVars().size(); i++) { String var = atom.getVars().get(i); if
-	 * (varAttrMap.containsKey(var)) { varAttrMap.get(var).add(relation.getName() +
-	 * "." + relation.getAttributes().get(i)); } else { List<String> list = new
-	 * ArrayList<String>(); list.add(relation.getName() + "." +
-	 * relation.getAttributes().get(i)); varAttrMap.put(var, list); } if
-	 * (atom.getConstants().contains(var)) varAttrMap.get(var).add(var); } } for
-	 * (String var : varAttrMap.keySet()) { if (varAttrMap.get(var).size() > 1) {
-	 * String first = varAttrMap.get(var).get(0); for (int i = 1; i <
-	 * varAttrMap.get(var).size(); i++) { whereConditions.add(first + "=" +
-	 * varAttrMap.get(var).get(i)); } } } // Create table with distinct potential
-	 * answers and add pVars to them //
-	 * con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.
-	 * CAvSAT_ALL_ANS_TABLE_NAME)).execute(); String allAnswers =
-	 * sqlQueriesImpl.getDistinctPotentialAnswersQuery(selectAttributes, fromTables,
-	 * Constants.CAvSAT_ALL_DISTINCT_POTENTIAL_ANS_TABLE_NAME, whereConditions);
-	 * con.prepareStatement(allAnswers).execute(); return
-	 * sqlQueriesImpl.getTablePreviewAsJSON(Constants.
-	 * CAvSAT_ALL_DISTINCT_POTENTIAL_ANS_TABLE_NAME, con, 100); }
-	 */
-
 	public String computeSQLQueryAnswers(SQLQuery sqlQuery, String intoTable, CAvSATSQLQueries sqlQueriesImpl,
 			int returnRowsLimit) throws SQLException, JsonProcessingException {
 		con.prepareStatement(sqlQueriesImpl.getDropTableQuery(intoTable)).execute();
@@ -292,39 +257,6 @@ public class AnswersComputer {
 			os.close();
 		}
 	}
-
-	/*
-	 * public long eliminatePotentialAnswers(String filename, int infinity) throws
-	 * SQLException { boolean moreAnswers = true; BufferedWriter wr = null;
-	 * PreparedStatement psSelect = con.prepareStatement("SELECT CAVSAT_PVAR FROM "
-	 * + Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME +
-	 * " WHERE CAVSAT_IS_CONSISTENT = 1"); PreparedStatement psUpdate = con
-	 * .prepareStatement("UPDATE " +
-	 * Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME +
-	 * " SET CAVSAT_IS_CONSISTENT = 0 WHERE CAVSAT_PVAR = ?"); String output = "";
-	 * Set<Integer> assignment = new HashSet<Integer>(); ResultSet
-	 * rsPotentialAnswers = null; // int iterationCount = 0; // long time = 0, start
-	 * = 0; ExecCommand command = new ExecCommand(); int i = 0; while (moreAnswers)
-	 * { System.out.println("iteration " + (i++)); assignment.clear(); moreAnswers =
-	 * false; // start = System.currentTimeMillis(); command.executeCommand(new
-	 * String[] { "maxhs", filename }, Constants.SAT_OUTPUT_FILE_NAME); output =
-	 * command.readOutput(Constants.SAT_OUTPUT_FILE_NAME); // iterationCount++; //
-	 * time += (System.currentTimeMillis() - start); StringTokenizer st = new
-	 * StringTokenizer(output.substring(1), " "); while (st.hasMoreTokens())
-	 * assignment.add(Integer.parseInt(st.nextToken())); try { rsPotentialAnswers =
-	 * psSelect.executeQuery(); wr = new BufferedWriter(new FileWriter(filename,
-	 * true)); while (rsPotentialAnswers.next()) { if
-	 * (assignment.contains(rsPotentialAnswers.getInt(1))) { wr.append(infinity +
-	 * " -" + rsPotentialAnswers.getInt(1) + " 0 c I\n"); psUpdate.setInt(1,
-	 * rsPotentialAnswers.getInt(1)); //
-	 * System.out.println("Removed "+rsPotentialAnswers.getInt(1));
-	 * psUpdate.addBatch(); moreAnswers = true; } } wr.close();
-	 * System.out.println("starting batch");
-	 * System.out.println(psUpdate.executeBatch().length);
-	 * System.out.println("done with batch"); } catch (IOException e) {
-	 * e.printStackTrace(); } } // System.out.println("MaxSAT Iterations: " +
-	 * iterationCount); return -1; }
-	 */
 
 	public int getRowCount(String tableName, CAvSATSQLQueries sqlQueriesImpl) throws SQLException {
 		ResultSet rs = con.prepareStatement(sqlQueriesImpl.getNumberOfRows(tableName)).executeQuery();

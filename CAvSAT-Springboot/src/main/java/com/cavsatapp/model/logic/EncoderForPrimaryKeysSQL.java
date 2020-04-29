@@ -201,7 +201,7 @@ public class EncoderForPrimaryKeysSQL {
 			for (int i = 1; i <= rs.getMetaData().getColumnCount(); i++) {
 				int factID = rs.getInt(i);
 				if (factID != pVar)
-					beta.addVar(-1 * factID);
+					beta.addVar(-1 * factIDBoolVarMap.get(factID));
 			}
 			beta.setDescription("B");
 			br.append(beta.getDimacsLine());
@@ -260,7 +260,7 @@ public class EncoderForPrimaryKeysSQL {
 			for (int i = 1; i <= rs.getMetaData().getColumnCount(); i++) {
 				int factID = rs.getInt(i);
 				if (factID != pVar)
-					beta.addVar(-1 * factID);
+					beta.addVar(-1 * factIDBoolVarMap.get(factID));
 			}
 			beta.setDescription("B");
 			br.append(beta.getDimacsLine());

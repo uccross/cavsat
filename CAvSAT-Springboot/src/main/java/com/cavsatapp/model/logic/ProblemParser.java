@@ -13,7 +13,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -136,14 +135,12 @@ public class ProblemParser {
 
 		selectAttributes = Arrays.asList(parts.get(i++).split(",")).stream().map(str -> str.replaceAll(" ", ""))
 				.collect(Collectors.toList());
-		ListIterator<String> lit = selectAttributes.listIterator();
-		while (lit.hasNext()) {
-			String attribute = lit.next();
+		for (String attribute : selectAttributes) {
 			if (attribute.matches("^(SUM|AVG|MIN|MAX|COUNT)\\(.+\\)")) {
 				String[] subparts = attribute.split("[()]");
 				query.getAggFunctions().add(subparts[0]);
 				query.getAggAttributes().add(subparts[1]);
-				lit.remove();
+				query.setAggregate(true);
 			}
 		}
 		query.setSelect(selectAttributes);
@@ -193,6 +190,7 @@ public class ProblemParser {
 		if (upperSQLSyntax.contains("ORDER BY"))
 			query.setOrderingAttributes(Arrays.asList(parts.get(i++).split(",")).stream()
 					.map(str -> str.replaceAll(" ", "")).collect(Collectors.toList()));
+		System.out.println(query.getSQLSyntax());
 		return query;
 	}
 
