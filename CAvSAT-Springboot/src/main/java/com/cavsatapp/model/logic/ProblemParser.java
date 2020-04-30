@@ -131,10 +131,13 @@ public class ProblemParser {
 		}
 
 		List<String> parts = Arrays.asList(upperSQLSyntax.split("(SELECT|FROM|WHERE|GROUP BY|ORDER BY)")).stream()
-				.map(str -> str.replaceAll(" ", "")).collect(Collectors.toList());
+				.map(str -> str.trim()).collect(Collectors.toList());
 
 		selectAttributes = Arrays.asList(parts.get(i++).split(",")).stream().map(str -> str.replaceAll(" ", ""))
 				.collect(Collectors.toList());
+		// Check if query is boolean (MS SQL server syntax)
+		if (selectAttributes.contains("1") && selectAttributes.size() == 1)
+			selectAttributes.clear();
 		for (String attribute : selectAttributes) {
 			if (attribute.matches("^(SUM|AVG|MIN|MAX|COUNT)\\(.+\\)")) {
 				String[] subparts = attribute.split("[()]");
@@ -179,7 +182,7 @@ public class ProblemParser {
 				sb.append(c);
 			}
 			if (!sb.toString().isEmpty())
-				whereConditions.add(sb.toString());
+				whereConditions.add(sb.toString().trim());
 		}
 		query.setWhereConditions(whereConditions);
 

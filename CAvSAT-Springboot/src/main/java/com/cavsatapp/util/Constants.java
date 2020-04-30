@@ -19,6 +19,7 @@ public class Constants {
 	public static final int PREVIEW_ROW_COUNT = 100;
 	public static final String FREE_TUPLE = "freeTuple";
 	public static final String FREE_TUPLE_ALIAS = "free_";
+	public static final String BOOL_CONS_ANSWER_COLUMN_NAME = "CONS_ANSWER";
 
 	public static final String CAvSAT_TBL_PREFIX = "CAVSAT_";
 	public static final String CAvSAT_CONSTRAINTS_TABLE_NAME = CAvSAT_TBL_PREFIX + "SYS_CONSTRAINTS";

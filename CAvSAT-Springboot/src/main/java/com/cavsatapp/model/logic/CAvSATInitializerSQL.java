@@ -75,14 +75,11 @@ public class CAvSATInitializerSQL {
 		SQLQuery ansFromConsQuery = new SQLQuery(query);
 		ansFromConsQuery.setFrom(query.getFrom().stream()
 				.map(relationName -> Constants.CAvSAT_CONS_TABLE_PREFIX + relationName).collect(Collectors.toList()));
-		ansFromConsQuery
-				.setSelect(
-						query.getSelect().stream()
-								.map(attribute -> attribute + " AS "
-										+ (attribute.matches("^(SUM|AVG|MIN|MAX|COUNT)\\(.+\\)")
-												? attribute.split("[()]")[0]
-												: attribute.replaceAll("\\.", "_")))
-								.collect(Collectors.toList()));
+		ansFromConsQuery.setSelect(query.getSelect().stream()
+				.map(attribute -> (attribute.matches("^(SUM|AVG|MIN|MAX|COUNT)\\(.+\\)")
+						? attribute + " AS " + attribute.split("[()]")[0]
+						: Constants.CAvSAT_CONS_TABLE_PREFIX + attribute + " AS " + attribute.split("\\.")[1]))
+				.collect(Collectors.toList()));
 		List<String> newConditions = new ArrayList<String>();
 		for (String condition : query.getWhereConditions()) {
 			String newCondition = condition;
@@ -92,8 +89,13 @@ public class CAvSATInitializerSQL {
 			}
 			newConditions.add(newCondition);
 		}
+		// Check for boolean query, and add 1 to the select clause (MS SQL Server
+		// Syntax)
+		if (ansFromConsQuery.getSelect().isEmpty())
+			ansFromConsQuery.getSelect().add("1 AS " + Constants.BOOL_CONS_ANSWER_COLUMN_NAME);
 		ansFromConsQuery.setWhereConditions(newConditions);
 		ansFromConsQuery.setSelectDistinct(true);
+		System.out.println(ansFromConsQuery.getSQLSyntax(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME));
 		con.prepareStatement(ansFromConsQuery.getSQLSyntax(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME)).execute();
 	}
 
@@ -116,6 +118,7 @@ public class CAvSATInitializerSQL {
 					.collect(Collectors.joining(",")));
 		}
 		witnessQuery.setSelect(selectAttributes);
+		System.out.println(witnessQuery);
 		con.prepareStatement(witnessQuery.getSQLSyntax(Constants.CAvSAT_WITNESSES_TABLE_NAME)).execute();
 	}
 

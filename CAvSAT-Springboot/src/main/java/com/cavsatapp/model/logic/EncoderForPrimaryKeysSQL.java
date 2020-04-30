@@ -144,8 +144,9 @@ public class EncoderForPrimaryKeysSQL {
 		betaQuery.setFrom(
 				query.getFrom().stream().map(relationName -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName)
 						.collect(Collectors.toList()));
-		betaQuery.setSelect(query.getSelect().stream().map(attribute -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX
-				+ attribute + " AS " + attribute.replaceAll("\\.", "_")).collect(Collectors.toList()));
+		betaQuery.setSelect(query.getSelect().stream().map(
+				attribute -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute + " AS " + attribute.split("\\.")[1])
+				.collect(Collectors.toList()));
 		betaQuery.setSelectDistinct(true);
 
 		List<String> newConditions = new ArrayList<String>();
@@ -158,25 +159,47 @@ public class EncoderForPrimaryKeysSQL {
 			newConditions.add(newCondition);
 		}
 		betaQuery.setWhereConditions(newConditions);
-		// Create table with distinct potential answers and add pVars to them
-		// con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_DISTINCT_POTENTIAL_ANS_TABLE_NAME))
-		// .execute();
-		// System.out.println(betaQuery.getSQLSyntax(Constants.CAvSAT_DISTINCT_POTENTIAL_ANS_TABLE_NAME));
+
+		if (query.getSelect().isEmpty()) {
+			boolQueryBeta(betaQuery, query);
+		} else {
+			nonBoolQueryBeta(betaQuery, query);
+		}
+
+	}
+
+	private void boolQueryBeta(SQLQuery betaQuery, SQLQuery originalQuery) throws SQLException, IOException {
+		// Get witnesses with factIDs in a ResultSet
+		betaQuery.setSelect(originalQuery.getFrom().stream()
+				.map(relationName -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName + "."
+						+ Constants.CAvSAT_FACTID_COLUMN_NAME + " AS " + relationName + "_"
+						+ Constants.CAvSAT_FACTID_COLUMN_NAME)
+				.collect(Collectors.toList()));
+		ResultSet rs = con.prepareStatement(betaQuery.getSQLSyntax()).executeQuery();
+		while (rs.next()) {
+			Clause beta = new Clause();
+			for (int i = 1; i <= rs.getMetaData().getColumnCount(); i++)
+				beta.addVar(-1 * factIDBoolVarMap.get(rs.getInt(i)));
+			beta.setDescription("B");
+			br.append(beta.getDimacsLine());
+		}
+		br.close();
+	}
+
+	private void nonBoolQueryBeta(SQLQuery betaQuery, SQLQuery originalQuery) throws SQLException, IOException {
 		con.prepareStatement(betaQuery.getSQLSyntax(Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME))
 				.execute();
 		con.prepareStatement("ALTER TABLE " + Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME
 				+ " ADD CAVSAT_PVAR INT IDENTITY(" + varIndex + ",1) PRIMARY KEY").execute();
 		// Create witnesses with factIDs
 		betaQuery.getSelect()
-				.addAll(query.getFrom().stream()
+				.addAll(originalQuery.getFrom().stream()
 						.map(relationName -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName + "."
 								+ Constants.CAvSAT_FACTID_COLUMN_NAME + " AS " + relationName + "_"
 								+ Constants.CAvSAT_FACTID_COLUMN_NAME)
 						.collect(Collectors.toList()));
-		// con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_WITNESSES_WITH_FACTID_TABLE_NAME))
-		// .execute();
 		con.prepareStatement(betaQuery.getSQLSyntax(Constants.CAvSAT_WITNESSES_WITH_FACTID_TABLE_NAME)).execute();
-		betaQuery.setSelect(query.getFrom().stream()
+		betaQuery.setSelect(originalQuery.getFrom().stream()
 				.map(relationName -> Constants.CAvSAT_WITNESSES_WITH_FACTID_TABLE_NAME + "." + relationName + "_"
 						+ Constants.CAvSAT_FACTID_COLUMN_NAME + " AS " + relationName + "_"
 						+ Constants.CAvSAT_FACTID_COLUMN_NAME)
@@ -186,11 +209,10 @@ public class EncoderForPrimaryKeysSQL {
 		betaQuery.getFrom().clear();
 		betaQuery.getFrom().add(Constants.CAvSAT_WITNESSES_WITH_FACTID_TABLE_NAME);
 		betaQuery.getFrom().add(Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME);
-		betaQuery.setWhereConditions(new ArrayList<String>(query.getSelect().stream()
-				.map(attribute -> Constants.CAvSAT_WITNESSES_WITH_FACTID_TABLE_NAME + "."
-						+ attribute.replaceAll("\\.", "_") + "="
-						+ Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME + "."
-						+ attribute.replaceAll("\\.", "_"))
+		betaQuery.setWhereConditions(new ArrayList<String>(originalQuery.getSelect().stream()
+				.map(attribute -> Constants.CAvSAT_WITNESSES_WITH_FACTID_TABLE_NAME + "." + attribute.split("\\.")[1]
+						+ "=" + Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME + "."
+						+ attribute.split("\\.")[1])
 				.collect(Collectors.toList())));
 		ResultSet rs = con.prepareStatement(betaQuery.getSQLSyntax()).executeQuery();
 		Set<Integer> addedPVars = new HashSet<Integer>();

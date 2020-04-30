@@ -34,6 +34,7 @@ import com.cavsatapp.model.bean.Schema;
 import com.cavsatapp.model.logic.AnswersComputer;
 import com.cavsatapp.model.logic.CAvSATInitializer;
 import com.cavsatapp.model.logic.CAvSATInitializerSQL;
+import com.cavsatapp.model.logic.EncoderForPrimaryKeysAggSQL;
 import com.cavsatapp.model.logic.EncoderForPrimaryKeysSQL;
 import com.cavsatapp.model.logic.ProblemParser;
 import com.cavsatapp.model.logic.QueryAnalyser;
@@ -55,12 +56,15 @@ import lombok.Data;
 @RestController
 @RequestMapping("/api")
 public class CavsatController {
+	private Connection con;
 
 	@PostMapping("/get-query-analysis")
 	ResponseEntity<?> getGraph(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
 		DBEnvironment dbEnv = dbEnvWithInput.dbEnv;
 		Schema schema = ProblemParser.parseSchema(dbEnv, dbEnvWithInput.schemaName);
 		SQLQuery sqlQuery = ProblemParser.parseSQLQuery(dbEnvWithInput.querySyntax, schema);
+		if (sqlQuery.isAggregate())
+			return ResponseEntity.ok().build();
 		Query query = ProblemParser.parseQuery(dbEnvWithInput.querySyntax, schema, dbEnvWithInput.queryLanguage);
 		try {
 			QueryAnalyser qa = new QueryAnalyser();
@@ -70,19 +74,6 @@ public class CavsatController {
 			e.printStackTrace();
 		}
 		return ResponseEntity.ok().build();
-	}
-
-	@PostMapping("/delayed-response")
-	ResponseEntity<?> getDelayedResponse(@Valid @RequestBody DBEnvironment dbEnv) {
-		System.out.println("Delay start at " + new Timestamp(System.currentTimeMillis()));
-		try {
-			Thread.sleep(5000);
-			System.out.println("Delay end at " + new Timestamp(System.currentTimeMillis()));
-			return ResponseEntity.ok().build();
-		} catch (InterruptedException ie) {
-			Thread.currentThread().interrupt();
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-		}
 	}
 
 	@PostMapping("/check-jdbc-connection")
@@ -165,56 +156,73 @@ public class CavsatController {
 		return ResponseEntity.ok().build();
 	}
 
-	private Connection con;
-
-	private void dropTables(CAvSATSQLQueries sqlQueriesImpl, SQLQuery query) {
-		try {
-			con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME)).execute();
-			con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_WITNESSES_TABLE_NAME)).execute();
-			for (String relationName : query.getFrom()) {
-				con.prepareStatement(
-						sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName))
-						.execute();
-			}
-			con.prepareStatement(
-					sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME))
-					.execute();
-			con.prepareStatement(
-					sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_UNOPT_DISTINCT_POTENTIAL_ANS_TABLE_NAME))
-					.execute();
-			con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_WITNESSES_WITH_FACTID_TABLE_NAME))
-					.execute();
-			con.prepareStatement(
-					sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_UNOPT_WITNESSES_WITH_FACTID_TABLE_NAME))
-					.execute();
-			con.prepareStatement(
-					sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_UNOPT_DISTINCT_POTENTIAL_ANS_TABLE_NAME))
-					.execute();
-			con.prepareStatement(
-					sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_ALL_DISTINCT_POTENTIAL_ANS_TABLE_NAME)).execute();
-			con.prepareStatement(sqlQueriesImpl.getDropTableQuery("CAVSAT_CONSISTENT_PVARS")).execute();
-			con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_FINAL_ANSWERS_TABLE_NAME)).execute();
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-	}
-
 	@PostMapping("/run-sat-module")
-	ResponseEntity<?> runSQLQuery(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
-		System.out.println("SAT solving start at " + new Timestamp(System.currentTimeMillis()));
+	ResponseEntity<?> runSATModule(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
 		DBEnvironment dbEnv = dbEnvWithInput.dbEnv;
 		Schema schema = ProblemParser.parseSchema(dbEnv, dbEnvWithInput.schemaName);
 		SQLQuery sqlQuery = ProblemParser.parseSQLQuery(dbEnvWithInput.querySyntax, schema);
 		CAvSATSQLQueries sqlQueriesImpl = new MSSQLServerImpl();
-		ObjectMapper mapper = new ObjectMapper();
-		ObjectNode node = mapper.createObjectNode();
-		long start, globalStart;
 		try {
 			if (con == null)
 				con = DriverManager.getConnection(DBUtil.constructConnectionURL(dbEnv, dbEnvWithInput.schemaName),
 						dbEnv.getUsername(), dbEnv.getPassword());
 			dropTables(sqlQueriesImpl, sqlQuery);
-			// prepareCAvSATTables(dbEnvWithInput);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		System.out.println("SAT solving start at " + new Timestamp(System.currentTimeMillis()));
+		if (sqlQuery.isAggregate()) {
+			return handleAggregationQueryViaSAT(schema, sqlQuery);
+		} else {
+			return handleSPJQueryViaSAT(schema, sqlQuery);
+		}
+	}
+
+	private ResponseEntity<?> handleAggregationQueryViaSAT(Schema schema, SQLQuery sqlQuery) {
+		CAvSATSQLQueries sqlQueriesImpl = new MSSQLServerImpl();
+		ObjectMapper mapper = new ObjectMapper();
+		ObjectNode node = mapper.createObjectNode();
+		try {
+			CAvSATInitializerSQL init = new CAvSATInitializerSQL(sqlQueriesImpl);
+			AnswersComputer computer = new AnswersComputer(con);
+			EncoderForPrimaryKeysAggSQL encoder = new EncoderForPrimaryKeysAggSQL(schema, con,
+					Constants.FORMULA_FILE_NAME, sqlQueriesImpl);
+			init.createAnsFromConsNew(sqlQuery, schema, con);
+			init.createWitnesses(sqlQuery, schema, con);
+			init.createRelevantTables(sqlQuery, schema, con);
+			init.attachSequentialFactIDsToRelevantTables(sqlQuery, con);
+			encoder.createAlphaClausesOpt(sqlQuery);
+			encoder.createBetaClausesOpt(sqlQuery);
+			String infinity = encoder.writeFinalFormulaFile(Constants.FORMULA_FILE_NAME);
+
+			long satTime = computer.eliminatePotentialAnswersInMemory(Constants.FORMULA_FILE_NAME, infinity);
+			computer.buildFinalAnswers(sqlQueriesImpl);
+			int totalRowCount = computer.getRowCount(Constants.CAvSAT_FINAL_ANSWERS_TABLE_NAME, sqlQueriesImpl);
+			String jsonData = sqlQueriesImpl.getTablePreviewAsJSON(Constants.CAvSAT_FINAL_ANSWERS_TABLE_NAME, con,
+					Constants.PREVIEW_ROW_COUNT);
+			// long totalEvaluationTime = System.currentTimeMillis() - globalStart;
+
+			// node.put("totalEvaluationTime", totalEvaluationTime);
+			node.set("jsonDataPreview", mapper.readValue(jsonData, ObjectNode.class));
+			node.set("runningTimeAnalysis", wrapAttributeValueDataForBootstrapTable(null, "Running Time Analysis"));
+			node.put("totalRowCount", totalRowCount);
+			node.put("previewRowCount",
+					totalRowCount < Constants.PREVIEW_ROW_COUNT ? totalRowCount : Constants.PREVIEW_ROW_COUNT);
+			node.put("approach", "Partial MaxSAT Solving");
+			System.out.println("SAT solving end at " + new Timestamp(System.currentTimeMillis()));
+			return ResponseEntity.ok(mapper.writeValueAsString(node));
+		} catch (SQLException | IOException e) {
+			e.printStackTrace();
+		}
+		return ResponseEntity.ok().build();
+	}
+
+	private ResponseEntity<?> handleSPJQueryViaSAT(Schema schema, SQLQuery sqlQuery) {
+		CAvSATSQLQueries sqlQueriesImpl = new MSSQLServerImpl();
+		ObjectMapper mapper = new ObjectMapper();
+		ObjectNode node = mapper.createObjectNode();
+		long start, globalStart;
+		try {
 			CAvSATInitializerSQL init = new CAvSATInitializerSQL(sqlQueriesImpl);
 			AnswersComputer computer = new AnswersComputer(con);
 			EncoderForPrimaryKeysSQL encoder = new EncoderForPrimaryKeysSQL(schema, con, Constants.FORMULA_FILE_NAME,
@@ -227,10 +235,21 @@ public class CavsatController {
 					System.currentTimeMillis() - start);
 			start = System.currentTimeMillis();
 
-			/*
-			 * if (sqlQuery.getSelect().isEmpty() && init2.checkBooleanConsAnswer(con)) {
-			 * return ResponseEntity.ok().build(); }
-			 */
+			if (sqlQuery.getSelect().isEmpty() && init.checkBooleanConsAnswer(con)) {
+				long totalEvaluationTime = System.currentTimeMillis() - globalStart;
+				evalTimeData.put("Total Evaluation Time (ms)", totalEvaluationTime);
+				node.put("totalEvaluationTime", totalEvaluationTime);
+				String jsonData = sqlQueriesImpl.getTablePreviewAsJSON(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME, con,
+						Constants.PREVIEW_ROW_COUNT);
+				node.set("jsonDataPreview", mapper.readValue(jsonData, ObjectNode.class));
+				node.set("runningTimeAnalysis",
+						wrapAttributeValueDataForBootstrapTable(evalTimeData, "Running Time Analysis"));
+				node.put("totalRowCount", 1);
+				node.put("previewRowCount", 1);
+				node.put("approach", "Consistent part of the DB");
+				return ResponseEntity.ok(mapper.writeValueAsString(node));
+			}
+
 			init.createWitnesses(sqlQuery, schema, con);
 			evalTimeData.put("Time to compute minimal witnesses to the query (ms)", System.currentTimeMillis() - start);
 			start = System.currentTimeMillis();
@@ -293,6 +312,93 @@ public class CavsatController {
 		}
 		return ResponseEntity.ok().build();
 	}
+
+	/*
+	 * @PostMapping("/run-sat-module") ResponseEntity<?>
+	 * runSQLQuery(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
+	 * System.out.println("SAT solving start at " + new
+	 * Timestamp(System.currentTimeMillis())); DBEnvironment dbEnv =
+	 * dbEnvWithInput.dbEnv; Schema schema = ProblemParser.parseSchema(dbEnv,
+	 * dbEnvWithInput.schemaName); SQLQuery sqlQuery =
+	 * ProblemParser.parseSQLQuery(dbEnvWithInput.querySyntax, schema);
+	 * CAvSATSQLQueries sqlQueriesImpl = new MSSQLServerImpl(); ObjectMapper mapper
+	 * = new ObjectMapper(); ObjectNode node = mapper.createObjectNode(); long
+	 * start, globalStart; try { if (con == null) con =
+	 * DriverManager.getConnection(DBUtil.constructConnectionURL(dbEnv,
+	 * dbEnvWithInput.schemaName), dbEnv.getUsername(), dbEnv.getPassword());
+	 * dropTables(sqlQueriesImpl, sqlQuery); CAvSATInitializerSQL init = new
+	 * CAvSATInitializerSQL(sqlQueriesImpl); AnswersComputer computer = new
+	 * AnswersComputer(con); EncoderForPrimaryKeysSQL encoder = new
+	 * EncoderForPrimaryKeysSQL(schema, con, Constants.FORMULA_FILE_NAME,
+	 * sqlQueriesImpl); Map<String, Long> evalTimeData = new LinkedHashMap<String,
+	 * Long>(); start = System.currentTimeMillis(); globalStart = start;
+	 * init.createAnsFromConsNew(sqlQuery, schema, con); evalTimeData.
+	 * put("Time to compute answers from the consistent part of the database (ms)",
+	 * System.currentTimeMillis() - start); start = System.currentTimeMillis();
+	 * 
+	 * if (sqlQuery.getSelect().isEmpty() && init.checkBooleanConsAnswer(con)) {
+	 * return ResponseEntity.ok().build(); }
+	 * 
+	 * init.createWitnesses(sqlQuery, schema, con);
+	 * evalTimeData.put("Time to compute minimal witnesses to the query (ms)",
+	 * System.currentTimeMillis() - start); start = System.currentTimeMillis();
+	 * 
+	 * init.createRelevantTables(sqlQuery, schema, con);
+	 * evalTimeData.put("Time to compute relevant facts (ms)",
+	 * System.currentTimeMillis() - start); start = System.currentTimeMillis();
+	 * 
+	 * init.attachSequentialFactIDsToRelevantTables(sqlQuery, con);
+	 * evalTimeData.put("Time to attach FactIDs to the relevant facts (ms)",
+	 * System.currentTimeMillis() - start); start = System.currentTimeMillis();
+	 * 
+	 * encoder.createAlphaClausesOpt(sqlQuery);
+	 * evalTimeData.put("Time to create positive clauses from key-equal groups (ms)"
+	 * , System.currentTimeMillis() - start); start = System.currentTimeMillis();
+	 * 
+	 * encoder.createBetaClausesOpt(sqlQuery); evalTimeData.
+	 * put("Time to create negative clauses from minimal witnesses (ms)",
+	 * System.currentTimeMillis() - start); start = System.currentTimeMillis();
+	 * 
+	 * String infinity = encoder.writeFinalFormulaFile(Constants.FORMULA_FILE_NAME);
+	 * evalTimeData.put("Time to write the clauses to a DIMAC file (ms)",
+	 * System.currentTimeMillis() - start); start = System.currentTimeMillis();
+	 * 
+	 * if (sqlQuery.getSelect().isEmpty()) {
+	 * computer.computeBooleanAnswer(Constants.FORMULA_FILE_NAME, "maxhs"); } else {
+	 * 
+	 * 
+	 * long satTime =
+	 * computer.eliminatePotentialAnswersInMemory(Constants.FORMULA_FILE_NAME,
+	 * infinity);
+	 * evalTimeData.put("Time to eliminate inconsistent potential answers (ms)",
+	 * System.currentTimeMillis() - start);
+	 * evalTimeData.put("Total SAT-solving time (ms)", satTime); start =
+	 * System.currentTimeMillis();
+	 * 
+	 * computer.buildFinalAnswers(sqlQueriesImpl);
+	 * evalTimeData.put("Time to write the final consistent answers to a table (ms)"
+	 * , System.currentTimeMillis() - start); start = System.currentTimeMillis();
+	 * 
+	 * int totalRowCount =
+	 * computer.getRowCount(Constants.CAvSAT_FINAL_ANSWERS_TABLE_NAME,
+	 * sqlQueriesImpl); String jsonData =
+	 * sqlQueriesImpl.getTablePreviewAsJSON(Constants.
+	 * CAvSAT_FINAL_ANSWERS_TABLE_NAME, con, Constants.PREVIEW_ROW_COUNT); long
+	 * totalEvaluationTime = System.currentTimeMillis() - globalStart;
+	 * evalTimeData.put("Total Evaluation Time (ms)", totalEvaluationTime);
+	 * 
+	 * node.put("totalEvaluationTime", totalEvaluationTime);
+	 * node.set("jsonDataPreview", mapper.readValue(jsonData, ObjectNode.class));
+	 * node.set("runningTimeAnalysis",
+	 * wrapAttributeValueDataForBootstrapTable(evalTimeData,
+	 * "Running Time Analysis")); node.put("totalRowCount", totalRowCount);
+	 * node.put("previewRowCount", totalRowCount < Constants.PREVIEW_ROW_COUNT ?
+	 * totalRowCount : Constants.PREVIEW_ROW_COUNT); node.put("approach",
+	 * "Partial MaxSAT Solving"); System.out.println("SAT solving end at " + new
+	 * Timestamp(System.currentTimeMillis())); return
+	 * ResponseEntity.ok(mapper.writeValueAsString(node)); } catch (SQLException |
+	 * IOException e) { e.printStackTrace(); } return ResponseEntity.ok().build(); }
+	 */
 
 	@PostMapping("/run-sat-module-unopt")
 	ResponseEntity<?> runSATModuleUnOpt(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
@@ -502,10 +608,9 @@ public class CavsatController {
 			ObjectMapper mapper = new ObjectMapper();
 			ObjectNode node = mapper.createObjectNode();
 			start = System.currentTimeMillis();
-			// String jsonData = computer.computeSQLQueryAnswers(sqlQuery,
-			// Constants.CAvSAT_ALL_DISTINCT_POTENTIAL_ANS_TABLE_NAME, sqlQueriesImpl,
-			// previewRowCount);
 			sqlQuery.setSelectDistinct(true);
+			if (sqlQuery.getSelect().size() == 0)
+				sqlQuery.getSelect().add("1 AS " + Constants.BOOL_CONS_ANSWER_COLUMN_NAME);
 			String jsonData = computer.computeSQLQueryAnswers(sqlQuery.getSQLSyntax(), sqlQueriesImpl, previewRowCount);
 			sqlQuery.setSelectDistinct(false);
 
@@ -527,6 +632,38 @@ public class CavsatController {
 			e.printStackTrace();
 		}
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+	}
+
+	private void dropTables(CAvSATSQLQueries sqlQueriesImpl, SQLQuery query) {
+		try {
+			con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME)).execute();
+			con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_WITNESSES_TABLE_NAME)).execute();
+			for (String relationName : query.getFrom()) {
+				con.prepareStatement(
+						sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName))
+						.execute();
+			}
+			con.prepareStatement(
+					sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME))
+					.execute();
+			con.prepareStatement(
+					sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_UNOPT_DISTINCT_POTENTIAL_ANS_TABLE_NAME))
+					.execute();
+			con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_WITNESSES_WITH_FACTID_TABLE_NAME))
+					.execute();
+			con.prepareStatement(
+					sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_UNOPT_WITNESSES_WITH_FACTID_TABLE_NAME))
+					.execute();
+			con.prepareStatement(
+					sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_UNOPT_DISTINCT_POTENTIAL_ANS_TABLE_NAME))
+					.execute();
+			con.prepareStatement(
+					sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_ALL_DISTINCT_POTENTIAL_ANS_TABLE_NAME)).execute();
+			con.prepareStatement(sqlQueriesImpl.getDropTableQuery("CAVSAT_CONSISTENT_PVARS")).execute();
+			con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_FINAL_ANSWERS_TABLE_NAME)).execute();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
 	}
 
 	private ObjectNode wrapAttributeValueDataForBootstrapTable(Map<String, Long> map, String tableName) {
