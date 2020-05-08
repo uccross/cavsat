@@ -298,7 +298,7 @@ public class EncoderForPrimaryKeysSQL {
 		br.close();
 	}
 
-	public String writeFinalFormulaFile(String formulaFileName) {
+	public String writeFinalFormulaFile(String formulaFileName, boolean pSAT) {
 		Set<String> clauses = new HashSet<String>();
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(formulaFileName));
@@ -309,15 +309,15 @@ public class EncoderForPrimaryKeysSQL {
 			br.close();
 			BufferedWriter wr = new BufferedWriter(new FileWriter(formulaFileName));
 			String infinity = Integer.toString(clauses.size() + 1);
-			String firstLine = "p wcnf " + varIndex + " " + clauses.size() + " " + infinity + "\n";
-			wr.write(firstLine);
-			// this.clauseCount = clauses.size();
-			for (String s : clauses) {
-				if (s.contains("S")) {
-					wr.append("1 " + s + "\n");
-				} else {
-					wr.append(infinity + " " + s + "\n");
-				}
+
+			if (!pSAT) {
+				wr.write("p cnf " + varIndex + " " + clauses.size() + "\n");
+				for (String s : clauses)
+					wr.append(s + "\n");
+			} else {
+				wr.write("p wcnf " + varIndex + " " + clauses.size() + " " + infinity + "\n");
+				for (String s : clauses)
+					wr.append((s.contains("S") ? "1" : infinity) + " " + s + "\n");
 			}
 			wr.close();
 			return infinity;

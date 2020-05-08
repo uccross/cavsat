@@ -59,10 +59,9 @@ public class ExecCommand {
 			if (solvername.equalsIgnoreCase("MaxHS")) {
 				while ((sCurrentLine = br.readLine()) != null) {
 					if (sCurrentLine.startsWith("c Solved: Number")) {
-						stats.setSolved(true);
+						stats.setSolved(Integer.parseInt(sCurrentLine.split("=")[1].trim()) == 0);
 						br.close();
 						return stats;
-						// return Integer.parseInt(sCurrentLine.split("=")[1].replaceAll(" ", "")) == 0;
 					}
 				}
 			} else if (solvername.equalsIgnoreCase("Glucose") || solvername.equalsIgnoreCase("Lingeling")) {

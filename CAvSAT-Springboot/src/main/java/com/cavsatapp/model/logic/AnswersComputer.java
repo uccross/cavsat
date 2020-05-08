@@ -42,11 +42,11 @@ public class AnswersComputer {
 	public Stats computeBooleanAnswer(String filename, String solvername) {
 		ExecCommand command = new ExecCommand();
 		if (solvername.equalsIgnoreCase("MaxHS")) {
-			command.executeCommand(new String[] { "./maxhs", filename }, Constants.SAT_OUTPUT_FILE_NAME);
+			command.executeCommand(new String[] { "maxhs", filename }, Constants.SAT_OUTPUT_FILE_NAME);
 		} else if (solvername.equalsIgnoreCase("Glucose")) {
-			command.executeCommand(new String[] { "./glucose", filename }, Constants.SAT_OUTPUT_FILE_NAME);
+			command.executeCommand(new String[] { "glucose", filename }, Constants.SAT_OUTPUT_FILE_NAME);
 		} else if (solvername.equalsIgnoreCase("lingeling")) {
-			command.executeCommand(new String[] { "./lingeling", filename }, Constants.SAT_OUTPUT_FILE_NAME);
+			command.executeCommand(new String[] { "lingeling", filename }, Constants.SAT_OUTPUT_FILE_NAME);
 		}
 		return command.isSAT(Constants.SAT_OUTPUT_FILE_NAME, solvername);
 	}

@@ -101,24 +101,27 @@ public class CAvSATInitializerSQL {
 
 	public void createWitnesses(SQLQuery query, Schema schema, Connection con) throws SQLException {
 		SQLQuery witnessQuery = new SQLQuery(query);
-		Set<String> whereConditions = new HashSet<String>();
-		String condition = "NOT EXISTS (SELECT 1 FROM " + Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME + " WHERE ";
-		Set<String> innerWhereConditions = new HashSet<String>();
-		for (String attribute : witnessQuery.getSelect()) {
-			innerWhereConditions
-					.add(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME + "." + attribute.split("\\.")[1] + "=" + attribute);
+		if (query.getSelect().size() != 0) {
+			Set<String> whereConditions = new HashSet<String>();
+			String condition = "NOT EXISTS (SELECT 1 FROM " + Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME + " WHERE ";
+			Set<String> innerWhereConditions = new HashSet<String>();
+			for (String attribute : witnessQuery.getSelect()) {
+				innerWhereConditions.add(
+						Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME + "." + attribute.split("\\.")[1] + "=" + attribute);
+			}
+			condition += innerWhereConditions.stream().collect(Collectors.joining(" AND ")) + ")";
+			whereConditions.add(condition);
+			witnessQuery.getWhereConditions().addAll(whereConditions);
 		}
-		condition += innerWhereConditions.stream().collect(Collectors.joining(" AND ")) + ")";
-		whereConditions.add(condition);
-		witnessQuery.getWhereConditions().addAll(whereConditions);
 		List<String> selectAttributes = new ArrayList<String>();
 		for (String relationName : witnessQuery.getFrom()) {
-			selectAttributes.add(schema.getRelationByName(relationName).getAttributes().stream()
+			selectAttributes.addAll(schema.getRelationByName(relationName).getAttributes().stream()
 					.map(attr -> relationName + "." + attr + " AS " + relationName + "_" + attr)
-					.collect(Collectors.joining(",")));
+					.collect(Collectors.toList()));
 		}
 		witnessQuery.setSelect(selectAttributes);
-		System.out.println(witnessQuery);
+		witnessQuery.setSelectDistinct(true);
+		System.out.println(witnessQuery.getSQLSyntax(Constants.CAvSAT_WITNESSES_TABLE_NAME));
 		con.prepareStatement(witnessQuery.getSQLSyntax(Constants.CAvSAT_WITNESSES_TABLE_NAME)).execute();
 	}
 
