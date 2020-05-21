@@ -46,8 +46,7 @@ class QueryForm extends Component {
       kwRuntimeAnalysis: undefined,
       queryAnalysis: undefined,
     });
-    await this.analyseQuery();
-    return;
+    //await this.analyseQuery();
     var evalStrategies = document.getElementsByName("eval-strategy");
     for (var i = 0; i < evalStrategies.length; i++) {
       if (evalStrategies[i].checked) {
@@ -93,9 +92,11 @@ class QueryForm extends Component {
       },
       body: JSON.stringify({
         dbEnv: this.props.dbEnv,
-        schemaName: this.state.schemaName,
-        querySyntax: this.state.querySyntax,
-        queryLanguage: this.state.queryLanguage,
+        schemaName: document.getElementById("selectSchema").value,
+        querySyntax: document.getElementById("querySyntax").value,
+        queryLanguage: document.querySelector(
+          'input[name="inlineRadioOptions"]:checked'
+        ).value,
       }),
     });
     const responseBody = await response.json();

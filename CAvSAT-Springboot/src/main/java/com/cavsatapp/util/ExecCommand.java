@@ -52,6 +52,23 @@ public class ExecCommand {
 		}
 	}
 
+	public long getFalsifiedSofts(String filename) {
+		try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+			String sCurrentLine;
+			while ((sCurrentLine = br.readLine()) != null) {
+				if (sCurrentLine.toLowerCase().contains("number of falsified softs")) {
+					br.close();
+					return Long.parseLong(sCurrentLine.split("=")[1].trim());
+				}
+			}
+			br.close();
+			return -1;
+		} catch (IOException e) {
+			e.printStackTrace();
+			return -1;
+		}
+	}
+
 	public Stats isSAT(String filename, String solvername) {
 		Stats stats = new Stats();
 		try (BufferedReader br = new BufferedReader(new FileReader(filename))) {

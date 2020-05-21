@@ -25,6 +25,7 @@ public class Constants {
 	public static final String CAvSAT_CONSTRAINTS_TABLE_NAME = CAvSAT_TBL_PREFIX + "SYS_CONSTRAINTS";
 	public static final String CAvSAT_ANS_FROM_CONS_TABLE_NAME = CAvSAT_TBL_PREFIX + "ANS_FROM_CONS";
 	public static final String CAvSAT_CONS_TABLE_PREFIX = CAvSAT_TBL_PREFIX + "CONS_";
+	public static final String CAvSAT_INCONS_TABLE_PREFIX = CAvSAT_TBL_PREFIX + "INCONS_";
 	public static final String CAvSAT_WITNESSES_TABLE_NAME = CAvSAT_TBL_PREFIX + "WITNESSES";
 	public static final String CAvSAT_WITNESSES_WITH_FACTID_TABLE_NAME = CAvSAT_TBL_PREFIX + "WITNESSES_WITH_FACTID";
 	public static final String CAvSAT_UNOPT_WITNESSES_WITH_FACTID_TABLE_NAME = CAvSAT_TBL_PREFIX
@@ -45,4 +46,9 @@ public class Constants {
 			+ CAvSAT_CONSTRAINTS_TABLE_NAME;
 	public static final String FORMULA_FILE_NAME = "formula.txt";
 	public static final String SAT_OUTPUT_FILE_NAME = "output.txt";
+	public static final String MAXSAT_SOLVER_NAME = "MaxHS";
+	public static final String MAXSAT_COMMAND = "maxhs";
+	public static final String MINSAT_SOLVER_NAME = "MinSatz";
+	public static final String MINSAT_COMMAND = "MinSatz2013";
+	
 }

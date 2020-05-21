@@ -41,8 +41,8 @@ public class AnswersComputer {
 
 	public Stats computeBooleanAnswer(String filename, String solvername) {
 		ExecCommand command = new ExecCommand();
-		if (solvername.equalsIgnoreCase("MaxHS")) {
-			command.executeCommand(new String[] { "maxhs", filename }, Constants.SAT_OUTPUT_FILE_NAME);
+		if (solvername.equalsIgnoreCase(Constants.MAXSAT_SOLVER_NAME)) {
+			command.executeCommand(new String[] { Constants.MAXSAT_COMMAND, filename }, Constants.SAT_OUTPUT_FILE_NAME);
 		} else if (solvername.equalsIgnoreCase("Glucose")) {
 			command.executeCommand(new String[] { "glucose", filename }, Constants.SAT_OUTPUT_FILE_NAME);
 		} else if (solvername.equalsIgnoreCase("lingeling")) {
@@ -124,7 +124,7 @@ public class AnswersComputer {
 			assignment.clear();
 			moreAnswers = false;
 			start = System.currentTimeMillis();
-			command.executeCommand(new String[] { "maxhs", filename }, Constants.SAT_OUTPUT_FILE_NAME);
+			command.executeCommand(new String[] { Constants.MAXSAT_COMMAND, filename }, Constants.SAT_OUTPUT_FILE_NAME);
 			time = time + System.currentTimeMillis() - start;
 			try {
 				copyFileUsingStream(new File(Constants.SAT_OUTPUT_FILE_NAME),
@@ -163,13 +163,12 @@ public class AnswersComputer {
 			psInsert.addBatch();
 		}
 		psInsert.executeBatch();
-		/*
-		 * con.prepareStatement("DELETE FROM " +
-		 * Constants.CAvSAT_DISTINCT_POTENTIAL_ANS_TABLE_NAME +
-		 * " WHERE NOT EXISTS (SELECT C.CAVSAT_PVAR FROM CAVSAT_CONSISTENT_PVARS C WHERE C.CAVSAT_PVAR = "
-		 * + Constants.CAvSAT_DISTINCT_POTENTIAL_ANS_TABLE_NAME +
-		 * ".CAVSAT_PVAR)").execute(); System.out.println("finished deleting");
-		 */
+
+		con.prepareStatement("DELETE FROM " + Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME
+				+ " WHERE NOT EXISTS (SELECT C.CAVSAT_PVAR FROM CAVSAT_CONSISTENT_PVARS C WHERE C.CAVSAT_PVAR = "
+				+ Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME + ".CAVSAT_PVAR)").execute();
+		System.out.println("finished deleting");
+
 		return time;
 	}
 
@@ -192,7 +191,7 @@ public class AnswersComputer {
 			assignment.clear();
 			moreAnswers = false;
 			start = System.currentTimeMillis();
-			command.executeCommand(new String[] { "maxhs", filename }, Constants.SAT_OUTPUT_FILE_NAME);
+			command.executeCommand(new String[] { Constants.MAXSAT_COMMAND, filename }, Constants.SAT_OUTPUT_FILE_NAME);
 			time = time + System.currentTimeMillis() - start;
 			try {
 				copyFileUsingStream(new File(Constants.SAT_OUTPUT_FILE_NAME),

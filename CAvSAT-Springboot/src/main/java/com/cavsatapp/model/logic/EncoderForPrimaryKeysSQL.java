@@ -311,11 +311,11 @@ public class EncoderForPrimaryKeysSQL {
 			String infinity = Integer.toString(clauses.size() + 1);
 
 			if (!pSAT) {
-				wr.write("p cnf " + varIndex + " " + clauses.size() + "\n");
+				wr.write("p cnf " + (varIndex - 1) + " " + clauses.size() + "\n");
 				for (String s : clauses)
 					wr.append(s + "\n");
 			} else {
-				wr.write("p wcnf " + varIndex + " " + clauses.size() + " " + infinity + "\n");
+				wr.write("p wcnf " + (varIndex - 1) + " " + clauses.size() + " " + infinity + "\n");
 				for (String s : clauses)
 					wr.append((s.contains("S") ? "1" : infinity) + " " + s + "\n");
 			}
