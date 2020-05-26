@@ -3,13 +3,19 @@
  * Use of this source code is governed by a BSD-style license that can be found in the LICENSE.txt file at the root of the project.
  ******************************************************************************/
 
-package com.cavsat.springboot.cavsatapp;
+package edu.cavsat.model.bean;
 
-import org.springframework.boot.test.context.SpringBootTest;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-import edu.cavsat.springboot.CAvSATApplication;
-
-@SpringBootTest(classes = CAvSATApplication.class)
-class CavsatAppApplicationTests {
-
+/**
+ * @author Akhil
+ *
+ */
+@AllArgsConstructor
+@Data
+public class Link {
+	private String source;
+	private String target;
+	private int value;
 }

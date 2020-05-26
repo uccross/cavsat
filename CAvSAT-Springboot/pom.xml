@@ -13,7 +13,7 @@
 		<version>2.2.0.M5</version>
 		<relativePath /> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.cavsatapp.springboot</groupId>
+	<groupId>edu.cavsat.springboot</groupId>
 	<artifactId>cavsat-app</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>cavsat-app</name>
