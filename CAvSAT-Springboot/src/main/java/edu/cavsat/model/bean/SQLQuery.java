@@ -128,7 +128,7 @@ public class SQLQuery {
 		if (!this.orderingAttributes.isEmpty()) {
 			sqlSyntax.append("\nORDER BY ");
 			sqlSyntax.append(this.orderingAttributes.stream()
-					.map(a -> a + " " + (this.orderDesc.get(this.orderingAttributes.indexOf(a)) ? " DESC" : " ASC"))
+					.map(a -> a + (this.orderDesc.get(this.orderingAttributes.indexOf(a)) ? " DESC" : " ASC"))
 					.collect(Collectors.joining(",")));
 		}
 		return sqlSyntax.toString();

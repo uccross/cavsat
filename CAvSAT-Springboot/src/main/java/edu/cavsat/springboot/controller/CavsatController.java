@@ -183,59 +183,118 @@ public class CavsatController {
 	}
 
 	private ResponseEntity<?> handleAggregationQueryViaSAT(Schema schema, SQLQuery sqlQuery) {
-		CAvSATSQLQueries sqlQueriesImpl = new MSSQLServerImpl();
+		switch (sqlQuery.getAggFunctions().get(0).toLowerCase()) {
+		case "count":
+			return handleCountQuery(schema, sqlQuery);
+		case "sum":
+			break;
+		case "min":
+			return handleMinMaxQueryItr(schema, sqlQuery, true);
+		case "max":
+			return handleMinMaxQueryItr(schema, sqlQuery, false);
+		case "average":
+			System.out.println("Average function is not supported");
+			break;
+		}
+		return ResponseEntity.ok().build();
+	}
+
+	private ResponseEntity<?> handleCountQuery(Schema schema, SQLQuery sqlQuery) {
 		ObjectMapper mapper = new ObjectMapper();
 		ObjectNode node = mapper.createObjectNode();
-		Map<String, Long> evalTimeData = new LinkedHashMap<String, Long>();
-		long start;
+		CAvSATSQLQueries sqlQueriesImpl = new MSSQLServerImpl();
+		CAvSATInitializerAggSQL init = new CAvSATInitializerAggSQL(sqlQueriesImpl);
+		int glb = Integer.MIN_VALUE, lub = Integer.MAX_VALUE;
 		try {
-			CAvSATInitializerAggSQL init = new CAvSATInitializerAggSQL(sqlQueriesImpl);
 			EncoderForPrimaryKeysAggSQL encoder = new EncoderForPrimaryKeysAggSQL(schema, con,
 					Constants.FORMULA_FILE_NAME, sqlQueriesImpl);
 			AnswersComputerAgg computer = new AnswersComputerAgg();
-			start = System.currentTimeMillis();
 
 			init.createAnsFromCons(sqlQuery, schema, con);
-			evalTimeData.put("Time to compute answers from the consistent part of the database (ms)",
-					System.currentTimeMillis() - start);
-			start = System.currentTimeMillis();
-
 			init.createWitnesses(sqlQuery, schema, con);
-			evalTimeData.put("Time to compute minimal witnesses to the query (ms)", System.currentTimeMillis() - start);
-			start = System.currentTimeMillis();
-
 			init.createRelevantTables(sqlQuery, schema, con);
-			evalTimeData.put("Time to compute relevant facts (ms)", System.currentTimeMillis() - start);
-			start = System.currentTimeMillis();
-
 			init.attachSequentialFactIDsToRelevantTables(sqlQuery, con);
-			evalTimeData.put("Time to attach FactIDs to the relevant facts (ms)", System.currentTimeMillis() - start);
-			start = System.currentTimeMillis();
-
 			encoder.createAlphaClauses(sqlQuery, true);
-			evalTimeData.put("Time to create positive clauses from key-equal groups (ms)",
-					System.currentTimeMillis() - start);
-			start = System.currentTimeMillis();
-
 			encoder.createBetaClauses(sqlQuery);
-			evalTimeData.put("Time to create negative clauses from minimal witnesses (ms)",
-					System.currentTimeMillis() - start);
-			start = System.currentTimeMillis();
 
-			encoder.writeFinalFormulaFile(false);
-			computer.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME);
-			int glb = computer.getFalsifiedClausesCount(Constants.FORMULA_FILE_NAME,
+			encoder.writeFinalFormulaFile(false, true);
+			AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME);
+			glb = computer.getFalsifiedClausesCount(Constants.FORMULA_FILE_NAME,
 					ExecCommand.readOutput(Constants.SAT_OUTPUT_FILE_NAME));
 			encoder.encodeWPMinSATtoWPMaxSAT();
-			computer.runSolver(Constants.MAXSAT_COMMAND, Constants.MIN_TO_MAX_ENCODED_FORMULA_FILE_NAME);
-			int lub = computer.getFalsifiedClausesCount(Constants.FORMULA_FILE_NAME,
+			AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.MIN_TO_MAX_ENCODED_FORMULA_FILE_NAME);
+			lub = computer.getFalsifiedClausesCount(Constants.FORMULA_FILE_NAME,
 					ExecCommand.readOutput(Constants.SAT_OUTPUT_FILE_NAME));
+
 			System.out.println("GLB: " + glb + " LUB: " + lub);
 			return ResponseEntity.ok(mapper.writeValueAsString(node));
 		} catch (SQLException | IOException e) {
 			e.printStackTrace();
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
 		}
-		return ResponseEntity.ok().build();
+	}
+
+	private ResponseEntity<?> handleMinMaxQuery(Schema schema, SQLQuery sqlQuery, boolean min) {
+		ObjectMapper mapper = new ObjectMapper();
+		ObjectNode node = mapper.createObjectNode();
+		CAvSATSQLQueries sqlQueriesImpl = new MSSQLServerImpl();
+		CAvSATInitializerAggSQL init = new CAvSATInitializerAggSQL(sqlQueriesImpl);
+		int glb = Integer.MIN_VALUE, lub = Integer.MAX_VALUE, bound1, bound2;
+		try {
+			EncoderForPrimaryKeysAggSQL encoder = new EncoderForPrimaryKeysAggSQL(schema, con,
+					Constants.FORMULA_FILE_NAME, sqlQueriesImpl);
+
+			init.createAnsFromCons(sqlQuery, schema, con);
+			init.createWitnesses(sqlQuery, schema, con);
+			init.createRelevantTables(sqlQuery, schema, con);
+			init.attachSequentialFactIDsToRelevantTables(sqlQuery, con);
+			encoder.createAlphaClauses(sqlQuery, true);
+			encoder.createBetaClausesForMinMax(sqlQuery, min);
+
+			encoder.writeFinalFormulaFile(true, true);
+			AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME);
+			bound1 = AnswersComputerAgg.computeDifficultBoundMinMax(Constants.FORMULA_FILE_NAME,
+					ExecCommand.readOutput(Constants.SAT_OUTPUT_FILE_NAME));
+			bound2 = AnswersComputerAgg.computeEasyBoundMinMax(sqlQuery, con);
+			lub = min ? bound1 : bound2;
+			glb = min ? bound2 : bound1;
+
+			System.out.println("GLB: " + glb + " LUB: " + lub);
+			return ResponseEntity.ok(mapper.writeValueAsString(node));
+		} catch (SQLException | IOException e) {
+			e.printStackTrace();
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+		}
+	}
+
+	private ResponseEntity<?> handleMinMaxQueryItr(Schema schema, SQLQuery sqlQuery, boolean min) {
+		ObjectMapper mapper = new ObjectMapper();
+		ObjectNode node = mapper.createObjectNode();
+		CAvSATSQLQueries sqlQueriesImpl = new MSSQLServerImpl();
+		CAvSATInitializerAggSQL init = new CAvSATInitializerAggSQL(sqlQueriesImpl);
+		double glb = Integer.MIN_VALUE, lub = Integer.MAX_VALUE, bound1, bound2;
+		try {
+			EncoderForPrimaryKeysAggSQL encoder = new EncoderForPrimaryKeysAggSQL(schema, con,
+					Constants.FORMULA_FILE_NAME, sqlQueriesImpl);
+
+			init.createAnsFromCons(sqlQuery, schema, con);
+			init.createWitnesses(sqlQuery, schema, con);
+			init.createRelevantTables(sqlQuery, schema, con);
+			init.attachSequentialFactIDsToRelevantTables(sqlQuery, con);
+			encoder.createAlphaClauses(sqlQuery, true);
+			encoder.closeBufferedReader();
+			encoder.writeFinalFormulaFile(false, false);
+			bound1 = encoder.computeDifficultBoundMinMaxItr(sqlQuery, min);
+			bound2 = AnswersComputerAgg.computeEasyBoundMinMax(sqlQuery, con);
+			lub = min ? bound1 : bound2;
+			glb = min ? bound2 : bound1;
+
+			System.out.println("GLB: " + glb + " LUB: " + lub);
+			return ResponseEntity.ok(mapper.writeValueAsString(node));
+		} catch (SQLException | IOException e) {
+			e.printStackTrace();
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+		}
 	}
 
 	private ResponseEntity<?> handleSPJQueryViaSAT(Schema schema, SQLQuery sqlQuery) {

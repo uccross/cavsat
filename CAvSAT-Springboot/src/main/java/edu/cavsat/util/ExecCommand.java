@@ -53,7 +53,7 @@ public class ExecCommand {
 		}
 	}
 
-	public Stats isSAT(String filename, String solvername) {
+	public static Stats isSAT(String filename, String solvername) {
 		Stats stats = new Stats();
 		try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
 			String sCurrentLine;

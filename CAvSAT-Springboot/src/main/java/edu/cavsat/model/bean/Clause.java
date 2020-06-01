@@ -68,11 +68,17 @@ public class Clause {
 		return this.vars.isEmpty();
 	}
 
-	public String getDimacsLine() {
+	public String getDimacsLine(boolean withWeight) {
 		String line = "";
 		for (int var : this.vars) {
 			line += Integer.toString(var) + " ";
 		}
+		if (withWeight)
+			line = Integer.toString(this.weight) + " " + line;
 		return line + "0 c " + this.description + "\n";
+	}
+
+	public String getDimacsLine() {
+		return getDimacsLine(false);
 	}
 }

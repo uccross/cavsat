@@ -123,7 +123,7 @@ public class CAvSATInitializerAggSQL {
 		}
 		q2.setWhereConditions(newConditions);
 		System.out.println("Creating witnesses:\n" + q1.getSQLSyntax(Constants.CAvSAT_WITNESSES_TABLE_NAME) + " EXCEPT "
-				+ q2.getSQLSyntax() + "\n");
+				+ q2.getSQLSyntax());
 		con.prepareStatement(q1.getSQLSyntax(Constants.CAvSAT_WITNESSES_TABLE_NAME) + " EXCEPT " + q2.getSQLSyntax())
 				.execute();
 	}

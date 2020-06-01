@@ -43,11 +43,12 @@ public class AnswersComputer {
 	public Stats computeBooleanAnswer(String filename, String solvername) {
 		ExecCommand command = new ExecCommand();
 		if (solvername.equalsIgnoreCase(Constants.MAXSAT_SOLVER_NAME)) {
-			command.executeCommand(new String[] { Constants.MAXSAT_COMMAND, filename }, Constants.SAT_OUTPUT_FILE_NAME);
+			ExecCommand.executeCommand(new String[] { Constants.MAXSAT_COMMAND, filename },
+					Constants.SAT_OUTPUT_FILE_NAME);
 		} else if (solvername.equalsIgnoreCase("Glucose")) {
-			command.executeCommand(new String[] { "glucose", filename }, Constants.SAT_OUTPUT_FILE_NAME);
+			ExecCommand.executeCommand(new String[] { "glucose", filename }, Constants.SAT_OUTPUT_FILE_NAME);
 		} else if (solvername.equalsIgnoreCase("lingeling")) {
-			command.executeCommand(new String[] { "lingeling", filename }, Constants.SAT_OUTPUT_FILE_NAME);
+			ExecCommand.executeCommand(new String[] { "lingeling", filename }, Constants.SAT_OUTPUT_FILE_NAME);
 		}
 		return command.isSAT(Constants.SAT_OUTPUT_FILE_NAME, solvername);
 	}
@@ -117,7 +118,6 @@ public class AnswersComputer {
 			consistentAnswers.add(rsSelect.getInt(1));
 		String output = "";
 		Set<Integer> assignment = new HashSet<Integer>();
-		ExecCommand command = new ExecCommand();
 		int i = 0;
 		long start, time = 0;
 		while (moreAnswers) {
@@ -125,7 +125,8 @@ public class AnswersComputer {
 			assignment.clear();
 			moreAnswers = false;
 			start = System.currentTimeMillis();
-			command.executeCommand(new String[] { Constants.MAXSAT_COMMAND, filename }, Constants.SAT_OUTPUT_FILE_NAME);
+			ExecCommand.executeCommand(new String[] { Constants.MAXSAT_COMMAND, filename },
+					Constants.SAT_OUTPUT_FILE_NAME);
 			time = time + System.currentTimeMillis() - start;
 			try {
 				copyFileUsingStream(new File(Constants.SAT_OUTPUT_FILE_NAME),
@@ -133,7 +134,7 @@ public class AnswersComputer {
 			} catch (IOException e1) {
 				e1.printStackTrace();
 			}
-			output = command.readOutput(Constants.SAT_OUTPUT_FILE_NAME);
+			output = ExecCommand.readOutput(Constants.SAT_OUTPUT_FILE_NAME);
 			StringTokenizer st = new StringTokenizer(output.substring(1), " ");
 			while (st.hasMoreTokens())
 				assignment.add(Integer.parseInt(st.nextToken()));
@@ -184,7 +185,6 @@ public class AnswersComputer {
 			consistentAnswers.add(rsSelect.getInt(1));
 		String output = "";
 		Set<Integer> assignment = new HashSet<Integer>();
-		ExecCommand command = new ExecCommand();
 		int i = 0;
 		long start, time = 0;
 		while (moreAnswers) {
@@ -192,7 +192,8 @@ public class AnswersComputer {
 			assignment.clear();
 			moreAnswers = false;
 			start = System.currentTimeMillis();
-			command.executeCommand(new String[] { Constants.MAXSAT_COMMAND, filename }, Constants.SAT_OUTPUT_FILE_NAME);
+			ExecCommand.executeCommand(new String[] { Constants.MAXSAT_COMMAND, filename },
+					Constants.SAT_OUTPUT_FILE_NAME);
 			time = time + System.currentTimeMillis() - start;
 			try {
 				copyFileUsingStream(new File(Constants.SAT_OUTPUT_FILE_NAME),
@@ -200,7 +201,7 @@ public class AnswersComputer {
 			} catch (IOException e1) {
 				e1.printStackTrace();
 			}
-			output = command.readOutput(Constants.SAT_OUTPUT_FILE_NAME);
+			output = ExecCommand.readOutput(Constants.SAT_OUTPUT_FILE_NAME);
 			StringTokenizer st = new StringTokenizer(output.substring(1), " ");
 			while (st.hasMoreTokens())
 				assignment.add(Integer.parseInt(st.nextToken()));

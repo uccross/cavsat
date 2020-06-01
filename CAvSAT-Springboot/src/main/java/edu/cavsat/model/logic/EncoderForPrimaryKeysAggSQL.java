@@ -26,6 +26,7 @@ import edu.cavsat.model.bean.SQLQuery;
 import edu.cavsat.model.bean.Schema;
 import edu.cavsat.util.CAvSATSQLQueries;
 import edu.cavsat.util.Constants;
+import edu.cavsat.util.ExecCommand;
 
 /**
  * @author Akhil
@@ -154,7 +155,9 @@ public class EncoderForPrimaryKeysAggSQL {
 		br.close();
 	}
 
-	public void createBetaClausesForMin(SQLQuery query) throws SQLException, IOException {
+	public void createBetaClausesForMinMax(SQLQuery query, boolean min) throws SQLException, IOException {
+		int weight = 1, sum = 0;
+		double prev = min ? Integer.MAX_VALUE : Integer.MIN_VALUE;
 		SQLQuery betaQuery = query.getQueryWithoutAggregates();
 		betaQuery.setFrom(
 				query.getFrom().stream().map(relationName -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName)
@@ -169,8 +172,8 @@ public class EncoderForPrimaryKeysAggSQL {
 			if (!attribute.equals("*")) {
 				betaQuery.getSelect().add(
 						Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute + " AS " + attribute.replaceAll("\\.", "_"));
-				betaQuery.getOrderingAttributes().add(attribute);
-				betaQuery.getOrderDesc().add(true);
+				betaQuery.getOrderingAttributes().add(Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute);
+				betaQuery.getOrderDesc().add(min); // DESC for Min, ASC for Max function
 			}
 		betaQuery.setSelectDistinct(true);
 
@@ -191,10 +194,79 @@ public class EncoderForPrimaryKeysAggSQL {
 			for (String relationName : query.getFrom())
 				beta.addVar(
 						-1 * factIDBoolVarMap.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
-			beta.setDescription("B S");
-			br.append(beta.getDimacsLine());
+			beta.setWeight(weight);
+			sum += weight;
+			if ((min && rs.getDouble(2) < prev) || (!min && rs.getDouble(2) > prev))
+				weight = sum + 1;
+			prev = rs.getDouble(2);
+			beta.setDescription("B S W v " + rs.getDouble(2));
+			br.append(beta.getDimacsLine(true));
 		}
 		br.close();
+	}
+
+	public double computeDifficultBoundMinMaxItr(SQLQuery query, boolean min) throws SQLException, IOException {
+		double prev = min ? Integer.MIN_VALUE : Integer.MAX_VALUE, curr = prev;
+		BufferedWriter wr = new BufferedWriter(new FileWriter(Constants.FORMULA_FILE_NAME, true));
+		SQLQuery betaQuery = query.getQueryWithoutAggregates();
+		betaQuery.setFrom(
+				query.getFrom().stream().map(relationName -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName)
+						.collect(Collectors.toList()));
+		betaQuery
+				.setSelect(
+						betaQuery
+								.getSelect().stream().map(attribute -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX
+										+ attribute + " AS " + attribute.replaceAll("\\.", "_"))
+								.collect(Collectors.toList()));
+		for (String attribute : query.getAggAttributes())
+			if (!attribute.equals("*")) {
+				betaQuery.getSelect().add(
+						Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute + " AS " + attribute.replaceAll("\\.", "_"));
+				betaQuery.getOrderingAttributes().add(Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute);
+				betaQuery.getOrderDesc().add(!min); // ASC for Min, DESC for Max function
+			}
+		betaQuery.setSelectDistinct(true);
+
+		List<String> newConditions = new ArrayList<String>();
+		String newCondition;
+		for (String condition : betaQuery.getWhereConditions()) {
+			newCondition = condition;
+			for (String relationName : query.getFrom())
+				newCondition = newCondition.replaceAll("(?i)" + relationName + "\\.",
+						Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName + "\\.");
+			newConditions.add(newCondition);
+		}
+		betaQuery.setWhereConditions(newConditions);
+		System.out.println("Beta clauses query:\n" + betaQuery.getSQLSyntax());
+		ResultSet rs = con.prepareStatement(betaQuery.getSQLSyntax()).executeQuery();
+		int i = 1;
+		while (rs.next()) {
+			curr = rs.getDouble(2);
+			if ((min && curr > prev) || (!min && curr < prev)) {
+				ExecCommand.executeCommand(new String[] { "cat", Constants.FORMULA_FILE_NAME },
+						"o" + Integer.toString(i++) + ".txt");
+				AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME);
+				if (!ExecCommand.isSAT(Constants.SAT_OUTPUT_FILE_NAME, Constants.MAXSAT_SOLVER_NAME).isSolved()) {
+					wr.close();
+					return prev;
+				}
+			}
+
+			Clause beta = new Clause();
+			for (String relationName : query.getFrom())
+				beta.addVar(
+						-1 * factIDBoolVarMap.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
+			beta.setDescription("B S W v " + rs.getDouble(2));
+			wr.append(beta.getDimacsLine()).flush();
+			prev = curr;
+		}
+		AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME);
+		if (!ExecCommand.isSAT(Constants.SAT_OUTPUT_FILE_NAME, Constants.MAXSAT_SOLVER_NAME).isSolved()) {
+			wr.close();
+			return prev;
+		}
+		wr.close();
+		return min ? Integer.MIN_VALUE : Integer.MAX_VALUE;
 	}
 
 	/**
@@ -240,23 +312,46 @@ public class EncoderForPrimaryKeysAggSQL {
 		}
 	}
 
-	public void writeFinalFormulaFile(boolean weighted) {
+	public void writeFinalFormulaFile(boolean isBetaWeighted, boolean isPartial) {
 		Set<String> clauses = new HashSet<String>();
+		int infinity = 1;
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(Constants.FORMULA_FILE_NAME));
 			String sCurrentLine;
 			while ((sCurrentLine = br.readLine()) != null) {
+				if (sCurrentLine.contains("W"))
+					infinity += Integer.parseInt(sCurrentLine.split(" ")[0]);
+				else if (sCurrentLine.contains("S"))
+					infinity++;
 				clauses.add(sCurrentLine);
 			}
 			br.close();
 			BufferedWriter wr = new BufferedWriter(new FileWriter(Constants.FORMULA_FILE_NAME));
-			String infinity = Integer.toString(clauses.size() + 1);
-			wr.write("p wcnf " + (varIndex - 1) + " " + clauses.size() + " " + infinity + "\n");
-			for (String s : clauses)
-				wr.append((s.contains("S") ? "1" : infinity) + " " + s.split("c")[0] + "\n");
+			if (!isPartial && !isBetaWeighted)
+				wr.write("p cnf " + (varIndex - 1) + " " + clauses.size() + " " + "\n");
+			else
+				wr.write("p wcnf " + (varIndex - 1) + " " + clauses.size() + " " + infinity + "\n");
+
+			if (isPartial && isBetaWeighted)
+				for (String s : clauses)
+					wr.append((s.contains("S") ? "" : infinity + " ") + s + "\n");
+			else if (isPartial && !isBetaWeighted)
+				for (String s : clauses)
+					wr.append((s.contains("S") ? "1" : infinity) + " " + s + "\n");
+			else
+				for (String s : clauses)
+					wr.append(s + "\n");
 			wr.close();
 		} catch (IOException ioe) {
 			ioe.printStackTrace();
+		}
+	}
+
+	public void closeBufferedReader() {
+		try {
+			this.br.close();
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 	}
 }
