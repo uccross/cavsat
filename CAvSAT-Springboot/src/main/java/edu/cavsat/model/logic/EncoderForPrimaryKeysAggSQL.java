@@ -115,8 +115,10 @@ public class EncoderForPrimaryKeysAggSQL {
 		}
 	}
 
-	public void createBetaClauses(SQLQuery query) throws SQLException, IOException {
+	public SQLQuery getWitnessesQuery(SQLQuery query, boolean desc) {
 		SQLQuery betaQuery = query.getQueryWithoutAggregates();
+		for (String relationName : betaQuery.getFrom())
+			betaQuery.getSelect().add(relationName + "." + Constants.CAvSAT_FACTID_COLUMN_NAME);
 		betaQuery.setFrom(
 				query.getFrom().stream().map(relationName -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName)
 						.collect(Collectors.toList()));
@@ -127,9 +129,12 @@ public class EncoderForPrimaryKeysAggSQL {
 										+ attribute + " AS " + attribute.replaceAll("\\.", "_"))
 								.collect(Collectors.toList()));
 		for (String attribute : query.getAggAttributes())
-			if (!attribute.equals("*"))
+			if (!attribute.equals("*")) {
 				betaQuery.getSelect().add(
 						Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute + " AS " + attribute.replaceAll("\\.", "_"));
+				betaQuery.getOrderingAttributes().add(Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute);
+				betaQuery.getOrderDesc().add(desc);
+			}
 		betaQuery.setSelectDistinct(true);
 
 		List<String> newConditions = new ArrayList<String>();
@@ -143,6 +148,11 @@ public class EncoderForPrimaryKeysAggSQL {
 		}
 		betaQuery.setWhereConditions(newConditions);
 		System.out.println("Beta clauses query:\n" + betaQuery.getSQLSyntax());
+		return betaQuery;
+	}
+
+	public void createBetaClausesForCount(SQLQuery query) throws SQLException, IOException {
+		SQLQuery betaQuery = getWitnessesQuery(query, true); // Second parameter does not matter for Count function
 		ResultSet rs = con.prepareStatement(betaQuery.getSQLSyntax()).executeQuery();
 		while (rs.next()) {
 			Clause beta = new Clause();
@@ -155,103 +165,57 @@ public class EncoderForPrimaryKeysAggSQL {
 		br.close();
 	}
 
-	public void createBetaClausesForMinMax(SQLQuery query, boolean min) throws SQLException, IOException {
-		int weight = 1, sum = 0;
-		double prev = min ? Integer.MAX_VALUE : Integer.MIN_VALUE;
-		SQLQuery betaQuery = query.getQueryWithoutAggregates();
-		betaQuery.setFrom(
-				query.getFrom().stream().map(relationName -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName)
-						.collect(Collectors.toList()));
-		betaQuery
-				.setSelect(
-						betaQuery
-								.getSelect().stream().map(attribute -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX
-										+ attribute + " AS " + attribute.replaceAll("\\.", "_"))
-								.collect(Collectors.toList()));
-		for (String attribute : query.getAggAttributes())
-			if (!attribute.equals("*")) {
-				betaQuery.getSelect().add(
-						Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute + " AS " + attribute.replaceAll("\\.", "_"));
-				betaQuery.getOrderingAttributes().add(Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute);
-				betaQuery.getOrderDesc().add(min); // DESC for Min, ASC for Max function
-			}
-		betaQuery.setSelectDistinct(true);
-
-		List<String> newConditions = new ArrayList<String>();
-		String newCondition;
-		for (String condition : betaQuery.getWhereConditions()) {
-			newCondition = condition;
-			for (String relationName : query.getFrom())
-				newCondition = newCondition.replaceAll("(?i)" + relationName + "\\.",
-						Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName + "\\.");
-			newConditions.add(newCondition);
-		}
-		betaQuery.setWhereConditions(newConditions);
-		System.out.println("Beta clauses query:\n" + betaQuery.getSQLSyntax());
-		ResultSet rs = con.prepareStatement(betaQuery.getSQLSyntax()).executeQuery();
-		while (rs.next()) {
-			Clause beta = new Clause();
-			for (String relationName : query.getFrom())
-				beta.addVar(
-						-1 * factIDBoolVarMap.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
-			beta.setWeight(weight);
-			sum += weight;
-			if ((min && rs.getDouble(2) < prev) || (!min && rs.getDouble(2) > prev))
-				weight = sum + 1;
-			prev = rs.getDouble(2);
-			beta.setDescription("B S W v " + rs.getDouble(2));
-			br.append(beta.getDimacsLine(true));
-		}
-		br.close();
-	}
+	/*
+	 * public void createBetaClausesForMinMax(SQLQuery query, boolean min) throws
+	 * SQLException, IOException { int weight = 1, sum = 0; double prev = min ?
+	 * Integer.MAX_VALUE : Integer.MIN_VALUE; SQLQuery betaQuery =
+	 * query.getQueryWithoutAggregates(); betaQuery.setFrom(
+	 * query.getFrom().stream().map(relationName ->
+	 * Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName)
+	 * .collect(Collectors.toList())); betaQuery .setSelect( betaQuery
+	 * .getSelect().stream().map(attribute -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX
+	 * + attribute + " AS " + attribute.replaceAll("\\.", "_"))
+	 * .collect(Collectors.toList())); for (String attribute :
+	 * query.getAggAttributes()) if (!attribute.equals("*")) {
+	 * betaQuery.getSelect().add( Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute
+	 * + " AS " + attribute.replaceAll("\\.", "_"));
+	 * betaQuery.getOrderingAttributes().add(Constants.CAvSAT_RELEVANT_TABLE_PREFIX
+	 * + attribute); betaQuery.getOrderDesc().add(min); // DESC for Min, ASC for Max
+	 * function } betaQuery.setSelectDistinct(true);
+	 * 
+	 * List<String> newConditions = new ArrayList<String>(); String newCondition;
+	 * for (String condition : betaQuery.getWhereConditions()) { newCondition =
+	 * condition; for (String relationName : query.getFrom()) newCondition =
+	 * newCondition.replaceAll("(?i)" + relationName + "\\.",
+	 * Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName + "\\.");
+	 * newConditions.add(newCondition); }
+	 * betaQuery.setWhereConditions(newConditions);
+	 * System.out.println("Beta clauses query:\n" + betaQuery.getSQLSyntax());
+	 * ResultSet rs = con.prepareStatement(betaQuery.getSQLSyntax()).executeQuery();
+	 * while (rs.next()) { Clause beta = new Clause(); for (String relationName :
+	 * query.getFrom()) beta.addVar( -1 *
+	 * factIDBoolVarMap.get(rs.getInt(relationName + "_" +
+	 * Constants.CAvSAT_FACTID_COLUMN_NAME))); beta.setWeight(weight); sum +=
+	 * weight; if ((min && rs.getDouble(2) < prev) || (!min && rs.getDouble(2) >
+	 * prev)) weight = sum + 1; prev = rs.getDouble(2);
+	 * beta.setDescription("B S W v " + rs.getDouble(2));
+	 * br.append(beta.getDimacsLine(true)); } br.close(); }
+	 */
 
 	public double computeDifficultBoundMinMaxItr(SQLQuery query, boolean min) throws SQLException, IOException {
 		double prev = min ? Integer.MIN_VALUE : Integer.MAX_VALUE, curr = prev;
 		BufferedWriter wr = new BufferedWriter(new FileWriter(Constants.FORMULA_FILE_NAME, true));
-		SQLQuery betaQuery = query.getQueryWithoutAggregates();
-		betaQuery.setFrom(
-				query.getFrom().stream().map(relationName -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName)
-						.collect(Collectors.toList()));
-		betaQuery
-				.setSelect(
-						betaQuery
-								.getSelect().stream().map(attribute -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX
-										+ attribute + " AS " + attribute.replaceAll("\\.", "_"))
-								.collect(Collectors.toList()));
-		for (String attribute : query.getAggAttributes())
-			if (!attribute.equals("*")) {
-				betaQuery.getSelect().add(
-						Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute + " AS " + attribute.replaceAll("\\.", "_"));
-				betaQuery.getOrderingAttributes().add(Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute);
-				betaQuery.getOrderDesc().add(!min); // ASC for Min, DESC for Max function
-			}
-		betaQuery.setSelectDistinct(true);
-
-		List<String> newConditions = new ArrayList<String>();
-		String newCondition;
-		for (String condition : betaQuery.getWhereConditions()) {
-			newCondition = condition;
-			for (String relationName : query.getFrom())
-				newCondition = newCondition.replaceAll("(?i)" + relationName + "\\.",
-						Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName + "\\.");
-			newConditions.add(newCondition);
-		}
-		betaQuery.setWhereConditions(newConditions);
-		System.out.println("Beta clauses query:\n" + betaQuery.getSQLSyntax());
+		SQLQuery betaQuery = getWitnessesQuery(query, !min);
 		ResultSet rs = con.prepareStatement(betaQuery.getSQLSyntax()).executeQuery();
-		int i = 1;
 		while (rs.next()) {
 			curr = rs.getDouble(2);
 			if ((min && curr > prev) || (!min && curr < prev)) {
-				ExecCommand.executeCommand(new String[] { "cat", Constants.FORMULA_FILE_NAME },
-						"o" + Integer.toString(i++) + ".txt");
 				AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME);
 				if (!ExecCommand.isSAT(Constants.SAT_OUTPUT_FILE_NAME, Constants.MAXSAT_SOLVER_NAME).isSolved()) {
 					wr.close();
 					return prev;
 				}
 			}
-
 			Clause beta = new Clause();
 			for (String relationName : query.getFrom())
 				beta.addVar(
@@ -269,8 +233,34 @@ public class EncoderForPrimaryKeysAggSQL {
 		return min ? Integer.MIN_VALUE : Integer.MAX_VALUE;
 	}
 
+	public void createBetaClausesForSum(SQLQuery query, boolean lub) throws SQLException, IOException {
+		SQLQuery betaQuery = getWitnessesQuery(query, true); // Second parameter does not matter for Count function
+		ResultSet rs = con.prepareStatement(betaQuery.getSQLSyntax()).executeQuery();
+		List<Clause> list;
+		Clause beta;
+		while (rs.next()) {
+			if (rs.getDouble(2) == 0)
+				continue;
+			beta = new Clause();
+			for (String relationName : query.getFrom())
+				beta.addVar(
+						-1 * factIDBoolVarMap.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
+			if ((rs.getDouble(2) > 0 && lub) || (rs.getDouble(2) < 0 && !lub)) {
+				beta.setDescription("B S v " + Double.toString(rs.getDouble(2)));
+				br.append(beta.getDimacsLine());
+			} else if ((rs.getDouble(2) < 0 && lub) || (rs.getDouble(2) > 0 && !lub)) {
+				list = beta.cnfNeg();
+				for (Clause c : list) {
+					beta.setDescription("B S N v " + Double.toString(rs.getDouble(2)));
+					br.append(c.getDimacsLine());
+				}
+			}
+		}
+		br.close();
+	}
+
 	/**
-	 * Kugel's encoding from Weighted Partial MinSAT to Weighted Partial MaxSAT
+	 * Kuegel's encoding from Weighted Partial MinSAT to Weighted Partial MaxSAT
 	 */
 	public void encodeWPMinSATtoWPMaxSAT() {
 		List<String> clauses = new ArrayList<String>();

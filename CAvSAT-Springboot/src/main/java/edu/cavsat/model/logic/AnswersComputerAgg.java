@@ -46,6 +46,37 @@ public class AnswersComputerAgg {
 		}
 	}
 
+	public double computeSumLUB(String formulaFileName, String assignment) {
+		Set<String> a = new HashSet<String>();
+		boolean satisfiedFlag;
+		double sum = 0;
+		String[] parts = assignment.split(" ");
+		for (String s : parts)
+			a.add(s);
+		try (BufferedReader br = new BufferedReader(new FileReader(formulaFileName))) {
+			String sCurrentLine = br.readLine(); // reading first line, e.g., p wcnf 4 6 5
+			while ((sCurrentLine = br.readLine()) != null) {
+				if (sCurrentLine.toUpperCase().contains("A"))
+					continue;
+				parts = sCurrentLine.split(" ");
+				satisfiedFlag = false;
+				for (int i = 1; i < parts.length - 1; i++) {
+					if (a.contains(parts[i])) {
+						satisfiedFlag = true;
+						break;
+					}
+				}
+				if (!(satisfiedFlag ^ sCurrentLine.toUpperCase().contains("N")))
+					sum += Double.parseDouble(sCurrentLine.split("v")[1].trim());
+			}
+			br.close();
+			return sum;
+		} catch (IOException e) {
+			e.printStackTrace();
+			return Integer.MIN_VALUE;
+		}
+	}
+
 	// Computes LUB for Min or GLB for the Max function
 	public static int computeDifficultBoundMinMax(String formulaFileName, String assignment) {
 		Set<String> a = new HashSet<String>();
@@ -91,13 +122,6 @@ public class AnswersComputerAgg {
 			e.printStackTrace();
 			return Integer.MIN_VALUE;
 		}
-	}
-
-	/**
-	 * Builds a table with already computed consistent answers
-	 */
-	public void buildFinalAnswers() {
-
 	}
 
 	public static void runSolver(String solverCommand, String formulaFilename) throws SQLException {

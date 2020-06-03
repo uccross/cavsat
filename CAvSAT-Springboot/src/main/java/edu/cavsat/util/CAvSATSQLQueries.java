@@ -70,4 +70,11 @@ public interface CAvSATSQLQueries {
 	public String getDropColumnQuery(String tableName, String columnName);
 
 	public String getBuildFinalAnswers(List<String> columns);
+
+	public String getConsAnsAgg();
+
+	public String createFinalAnswersAggTable(List<String> columns);
+
+	public String insertIntoFinalAnswersAggTable(List<String> columns);
+
 }

@@ -10,6 +10,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -133,7 +134,7 @@ public class MSSQLServerImpl implements CAvSATSQLQueries {
 			Set<String> whereConditions) {
 		String query = "SELECT DISTINCT " + selectAttributes.stream().collect(Collectors.joining(","));
 		if (intoTable != null)
-			query += " " + intoTable;
+			query += " INTO " + intoTable;
 		query += " FROM " + fromTables.stream().collect(Collectors.joining(","));
 		if (!whereConditions.isEmpty())
 			query += " WHERE " + whereConditions.stream().collect(Collectors.joining(" AND "));
@@ -271,5 +272,31 @@ public class MSSQLServerImpl implements CAvSATSQLQueries {
 	@Override
 	public String getNumberOfRows(String tableName) {
 		return "SELECT COUNT(*) FROM " + tableName;
+	}
+
+	@Override
+	public String createFinalAnswersAggTable(List<String> columns) {
+		return "CREATE TABLE " + Constants.CAvSAT_AGG_FINAL_ANSWERS_TABLE_NAME + "("
+				+ columns.stream().map(c -> c + " VARCHAR(1000)").collect(Collectors.joining(",")) + ", "
+				+ Constants.GLB_COLUMN_NAME + " REAL, " + Constants.LUB_COLUMN_NAME + " REAL)";
+	}
+
+	@Override
+	public String insertIntoFinalAnswersAggTable(List<String> columns) {
+		StringBuilder insertQuery = new StringBuilder(
+				"INSERT INTO " + Constants.CAvSAT_AGG_FINAL_ANSWERS_TABLE_NAME + " ");
+		insertQuery.append("(");
+		insertQuery.append(columns.stream().collect(Collectors.joining(",")));
+		insertQuery.append(")");
+
+		insertQuery.append(" VALUES (");
+		insertQuery.append(Collections.nCopies(columns.size(), "?").stream().collect(Collectors.joining(",")));
+		insertQuery.append(")");
+		return insertQuery.toString();
+	}
+
+	@Override
+	public String getConsAnsAgg() {
+		return "SELECT * FROM " + Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME;
 	}
 }

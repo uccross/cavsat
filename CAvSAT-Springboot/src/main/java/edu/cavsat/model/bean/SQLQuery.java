@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import edu.cavsat.util.Constants;
 import lombok.Data;
 
 @Data
@@ -80,9 +79,16 @@ public class SQLQuery {
 		noAggQuery.select = this.select.stream()
 				.filter(Pattern.compile("^(SUM|AVG|MIN|MAX|COUNT)\\(.+\\)").asPredicate().negate())
 				.collect(Collectors.<String>toList());
-		for (String relationName : noAggQuery.from)
-			noAggQuery.select.add(relationName + "." + Constants.CAvSAT_FACTID_COLUMN_NAME);
 		return noAggQuery;
+	}
+
+	public SQLQuery getQueryWithoutGroupBy() {
+		SQLQuery noGroupByQuery = new SQLQuery(this);
+		noGroupByQuery.groupingAttributes.clear();
+		noGroupByQuery.select = this.select.stream()
+				.filter(Pattern.compile("^(SUM|AVG|MIN|MAX|COUNT)\\(.+\\)").asPredicate())
+				.collect(Collectors.<String>toList());
+		return noGroupByQuery;
 	}
 
 	/*

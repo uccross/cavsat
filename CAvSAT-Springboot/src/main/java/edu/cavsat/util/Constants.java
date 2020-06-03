@@ -20,6 +20,8 @@ public class Constants {
 	public static final String FREE_TUPLE = "freeTuple";
 	public static final String FREE_TUPLE_ALIAS = "free_";
 	public static final String BOOL_CONS_ANSWER_COLUMN_NAME = "CONS_ANSWER";
+	public static final String GLB_COLUMN_NAME = "GLB";
+	public static final String LUB_COLUMN_NAME = "LUB";
 
 	public static final String CAvSAT_TBL_PREFIX = "CAVSAT_";
 	public static final String CAvSAT_CONSTRAINTS_TABLE_NAME = CAvSAT_TBL_PREFIX + "SYS_CONSTRAINTS";
@@ -37,6 +39,7 @@ public class Constants {
 	public static final String CAvSAT_ALL_DISTINCT_POTENTIAL_ANS_TABLE_NAME = CAvSAT_TBL_PREFIX
 			+ "ALL_DISTINCT_POTENTIAL_ANSWERS";
 	public static final String CAvSAT_FINAL_ANSWERS_TABLE_NAME = CAvSAT_TBL_PREFIX + "FINAL_ANSWERS";
+	public static final String CAvSAT_AGG_FINAL_ANSWERS_TABLE_NAME = CAvSAT_TBL_PREFIX + "AGG_FINAL_ANSWERS";
 	public static final String CAvSAT_CONQUER_CONSISTENT_ANSWERS_TABLE_NAME = CAvSAT_TBL_PREFIX + "CONQUER_ANSWERS";
 	public static final String CAvSAT_FACTID_COLUMN_NAME = "CAvSAT_FactID";
 	public static final String CAvSAT_UNOPT_FACTID_COLUMN_NAME = "CAvSAT_UNOPT_FactID";

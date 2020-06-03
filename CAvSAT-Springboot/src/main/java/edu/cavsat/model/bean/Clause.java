@@ -5,7 +5,9 @@
 
 package edu.cavsat.model.bean;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class Clause {
@@ -80,5 +82,21 @@ public class Clause {
 
 	public String getDimacsLine() {
 		return getDimacsLine(false);
+	}
+
+	public List<Clause> cnfNeg() {
+		List<Clause> list = new ArrayList<Clause>();
+		List<Integer> literalsSoFar = new ArrayList<Integer>();
+		Clause c;
+		for (int var : this.vars) {
+			c = new Clause();
+			c.setWeight(this.weight);
+			for (int lit : literalsSoFar)
+				c.addVar(lit);
+			c.addVar(-1 * var);
+			list.add(c);
+			literalsSoFar.add(var);
+		}
+		return list;
 	}
 }

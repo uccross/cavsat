@@ -41,7 +41,6 @@ public class AnswersComputer {
 	}
 
 	public Stats computeBooleanAnswer(String filename, String solvername) {
-		ExecCommand command = new ExecCommand();
 		if (solvername.equalsIgnoreCase(Constants.MAXSAT_SOLVER_NAME)) {
 			ExecCommand.executeCommand(new String[] { Constants.MAXSAT_COMMAND, filename },
 					Constants.SAT_OUTPUT_FILE_NAME);
@@ -50,7 +49,7 @@ public class AnswersComputer {
 		} else if (solvername.equalsIgnoreCase("lingeling")) {
 			ExecCommand.executeCommand(new String[] { "lingeling", filename }, Constants.SAT_OUTPUT_FILE_NAME);
 		}
-		return command.isSAT(Constants.SAT_OUTPUT_FILE_NAME, solvername);
+		return ExecCommand.isSAT(Constants.SAT_OUTPUT_FILE_NAME, solvername);
 	}
 
 	public void buildFinalAnswers(CAvSATSQLQueries sqlQueriesImpl) throws SQLException {
