@@ -12,7 +12,7 @@ import java.util.Set;
 
 public class Clause {
 	private Set<Integer> vars;
-	private int weight;
+	private double weight;
 	private String description;
 
 	public Clause() {
@@ -58,11 +58,11 @@ public class Clause {
 		this.vars.remove(var);
 	}
 
-	public int getWeight() {
+	public double getWeight() {
 		return weight;
 	}
 
-	public void setWeight(int weight) {
+	public void setWeight(double weight) {
 		this.weight = weight;
 	}
 
@@ -76,7 +76,7 @@ public class Clause {
 			line += Integer.toString(var) + " ";
 		}
 		if (withWeight)
-			line = Integer.toString(this.weight) + " " + line;
+			line = Double.toString(this.weight) + " " + line;
 		return line + "0 c " + this.description + "\n";
 	}
 

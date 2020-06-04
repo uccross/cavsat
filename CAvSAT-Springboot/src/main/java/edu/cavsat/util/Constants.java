@@ -48,7 +48,9 @@ public class Constants {
 	public static final String CAvSAT_GET_CONSTRAINTS_QUERY = "SELECT Constraint_ID, Constraint_Type, Constraint_Definition FROM "
 			+ CAvSAT_CONSTRAINTS_TABLE_NAME;
 	public static final String FORMULA_FILE_NAME = "formula.txt";
+	public static final String SECOND_FORMULA_FILE_NAME = "secondformula.txt";
 	public static final String SAT_OUTPUT_FILE_NAME = "output.txt";
+	public static final String SECOND_SAT_OUTPUT_FILE_NAME = "secondoutput.txt";
 	public static final String MIN_TO_MAX_ENCODED_FORMULA_FILE_NAME = "formulaMinToMax.txt";
 	public static final String MAXSAT_SOLVER_NAME = "MaxHS";
 	public static final String MAXSAT_COMMAND = "maxhs";

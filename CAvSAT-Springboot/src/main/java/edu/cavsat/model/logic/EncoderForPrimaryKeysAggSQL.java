@@ -36,23 +36,23 @@ public class EncoderForPrimaryKeysAggSQL {
 	private Schema schema;
 	private CAvSATSQLQueries sqlQueriesImpl;
 	private Connection con;
-	private BufferedWriter br;
 	private int varIndex = 1;
 	private Map<Integer, Integer> factIDBoolVarMap;
 
-	public EncoderForPrimaryKeysAggSQL(Schema schema, Connection con, String formulaFileName,
-			CAvSATSQLQueries SQLQueriesImpl) throws IOException {
+	public EncoderForPrimaryKeysAggSQL(Schema schema, Connection con, CAvSATSQLQueries SQLQueriesImpl)
+			throws IOException {
 		super();
 		this.schema = schema;
 		this.con = con;
 		this.sqlQueriesImpl = SQLQueriesImpl;
 		this.factIDBoolVarMap = new HashMap<Integer, Integer>();
-		this.br = new BufferedWriter(new FileWriter(formulaFileName));
 	}
 
 	// exactlyOne: true -> Encodes "Exactly one fact from each key-equal group"
 	// exactlyOne: false -> Encodes "At least one fact from each key-equal group"
-	public void createAlphaClauses(SQLQuery query, boolean exactlyOne) throws IOException, SQLException {
+	public void createAlphaClauses(SQLQuery query, boolean exactlyOne, String fileName)
+			throws IOException, SQLException {
+		BufferedWriter wr = new BufferedWriter(new FileWriter(fileName));
 		PreparedStatement psKeyEqualGroups;
 		Clause clause = null;
 		factIDBoolVarMap.clear();
@@ -81,9 +81,9 @@ public class EncoderForPrimaryKeysAggSQL {
 				if (!receivedValue.equals(curValue)) {
 					if (null != clause) {
 						clause.setDescription("A");
-						br.append(clause.getDimacsLine());
+						wr.append(clause.getDimacsLine());
 						if (exactlyOne)
-							encodeAtMostOne(new ArrayList<Integer>(clause.getVars()));
+							encodeAtMostOne(new ArrayList<Integer>(clause.getVars()), wr);
 					}
 					clause = new Clause();
 					clause.addVar(xVar);
@@ -94,15 +94,16 @@ public class EncoderForPrimaryKeysAggSQL {
 			}
 			if (null != clause) {
 				clause.setDescription("A");
-				br.append(clause.getDimacsLine());
+				wr.append(clause.getDimacsLine());
 				if (exactlyOne)
-					encodeAtMostOne(new ArrayList<Integer>(clause.getVars()));
+					encodeAtMostOne(new ArrayList<Integer>(clause.getVars()), wr);
 			}
 		}
+		wr.close();
 	}
 
 	// Binomial encoding
-	private void encodeAtMostOne(List<Integer> vars) throws IOException {
+	private void encodeAtMostOne(List<Integer> vars, BufferedWriter wr) throws IOException {
 		Clause clause;
 		for (int i = 0; i < vars.size() - 1; i++) {
 			for (int j = i + 1; j < vars.size(); j++) {
@@ -110,7 +111,7 @@ public class EncoderForPrimaryKeysAggSQL {
 				clause.addVar(vars.get(i) * -1);
 				clause.addVar(vars.get(j) * -1);
 				clause.setDescription("A");
-				br.append(clause.getDimacsLine());
+				wr.append(clause.getDimacsLine());
 			}
 		}
 	}
@@ -151,7 +152,8 @@ public class EncoderForPrimaryKeysAggSQL {
 		return betaQuery;
 	}
 
-	public void createBetaClausesForCount(SQLQuery query) throws SQLException, IOException {
+	public void createBetaClausesForCount(SQLQuery query, String fileName) throws SQLException, IOException {
+		BufferedWriter wr = new BufferedWriter(new FileWriter(fileName, true));
 		SQLQuery betaQuery = getWitnessesQuery(query, true); // Second parameter does not matter for Count function
 		ResultSet rs = con.prepareStatement(betaQuery.getSQLSyntax()).executeQuery();
 		while (rs.next()) {
@@ -160,9 +162,9 @@ public class EncoderForPrimaryKeysAggSQL {
 				beta.addVar(
 						-1 * factIDBoolVarMap.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
 			beta.setDescription("B S");
-			br.append(beta.getDimacsLine());
+			wr.append(beta.getDimacsLine());
 		}
-		br.close();
+		wr.close();
 	}
 
 	/*
@@ -210,7 +212,8 @@ public class EncoderForPrimaryKeysAggSQL {
 		while (rs.next()) {
 			curr = rs.getDouble(2);
 			if ((min && curr > prev) || (!min && curr < prev)) {
-				AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME);
+				AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME,
+						Constants.SAT_OUTPUT_FILE_NAME);
 				if (!ExecCommand.isSAT(Constants.SAT_OUTPUT_FILE_NAME, Constants.MAXSAT_SOLVER_NAME).isSolved()) {
 					wr.close();
 					return prev;
@@ -224,7 +227,8 @@ public class EncoderForPrimaryKeysAggSQL {
 			wr.append(beta.getDimacsLine()).flush();
 			prev = curr;
 		}
-		AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME);
+		AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME,
+				Constants.SAT_OUTPUT_FILE_NAME);
 		if (!ExecCommand.isSAT(Constants.SAT_OUTPUT_FILE_NAME, Constants.MAXSAT_SOLVER_NAME).isSolved()) {
 			wr.close();
 			return prev;
@@ -233,7 +237,8 @@ public class EncoderForPrimaryKeysAggSQL {
 		return min ? Integer.MIN_VALUE : Integer.MAX_VALUE;
 	}
 
-	public void createBetaClausesForSum(SQLQuery query, boolean lub) throws SQLException, IOException {
+	public void createBetaClausesForSum(SQLQuery query, boolean lub, String fileName) throws SQLException, IOException {
+		BufferedWriter wr = new BufferedWriter(new FileWriter(fileName, true));
 		SQLQuery betaQuery = getWitnessesQuery(query, true); // Second parameter does not matter for Count function
 		ResultSet rs = con.prepareStatement(betaQuery.getSQLSyntax()).executeQuery();
 		List<Clause> list;
@@ -245,18 +250,27 @@ public class EncoderForPrimaryKeysAggSQL {
 			for (String relationName : query.getFrom())
 				beta.addVar(
 						-1 * factIDBoolVarMap.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
-			if ((rs.getDouble(2) > 0 && lub) || (rs.getDouble(2) < 0 && !lub)) {
-				beta.setDescription("B S v " + Double.toString(rs.getDouble(2)));
-				br.append(beta.getDimacsLine());
-			} else if ((rs.getDouble(2) < 0 && lub) || (rs.getDouble(2) > 0 && !lub)) {
+			beta.setWeight(Math.abs(rs.getDouble(2)));
+			/*
+			 * if ((rs.getDouble(2) > 0 && lub) || (rs.getDouble(2) < 0 && !lub)) {
+			 * beta.setDescription("B S W v " + Double.toString(rs.getDouble(2)));
+			 * wr.append(beta.getDimacsLine(true)); } else if ((rs.getDouble(2) < 0 && lub)
+			 * || (rs.getDouble(2) > 0 && !lub)) { list = beta.cnfNeg(); for (Clause c :
+			 * list) { c.setDescription("B S W N v " + Double.toString(rs.getDouble(2)));
+			 * wr.append(c.getDimacsLine(true)); } }
+			 */
+			if ((rs.getDouble(2) > 0) ^ lub) {
+				beta.setDescription("B S W v " + Double.toString(rs.getDouble(2)));
+				wr.append(beta.getDimacsLine(true));
+			} else {
 				list = beta.cnfNeg();
 				for (Clause c : list) {
-					beta.setDescription("B S N v " + Double.toString(rs.getDouble(2)));
-					br.append(c.getDimacsLine());
+					c.setDescription("B S W N v " + Double.toString(rs.getDouble(2)));
+					wr.append(c.getDimacsLine(true));
 				}
 			}
 		}
-		br.close();
+		wr.close();
 	}
 
 	/**
@@ -268,6 +282,7 @@ public class EncoderForPrimaryKeysAggSQL {
 		String[] parts;
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(Constants.FORMULA_FILE_NAME));
+			BufferedWriter wr = new BufferedWriter(new FileWriter(Constants.MIN_TO_MAX_ENCODED_FORMULA_FILE_NAME));
 			if ((sCurrentLine = br.readLine()) != null) {
 				parts = sCurrentLine.split(" ");
 				nVars = parts[2];
@@ -291,8 +306,6 @@ public class EncoderForPrimaryKeysAggSQL {
 				}
 			}
 			br.close();
-
-			BufferedWriter wr = new BufferedWriter(new FileWriter(Constants.MIN_TO_MAX_ENCODED_FORMULA_FILE_NAME));
 			wr.write("p wcnf " + nVars + " " + clauses.size() + " " + infinity + "\n");
 			for (String s : clauses)
 				wr.append(s + "\n");
@@ -302,46 +315,38 @@ public class EncoderForPrimaryKeysAggSQL {
 		}
 	}
 
-	public void writeFinalFormulaFile(boolean isBetaWeighted, boolean isPartial) {
+	public void writeFinalFormulaFile(boolean isBetaWeighted, boolean isPartial, String source, String dest) {
 		Set<String> clauses = new HashSet<String>();
-		int infinity = 1;
+		double infinity = 1;
 		try {
-			BufferedReader br = new BufferedReader(new FileReader(Constants.FORMULA_FILE_NAME));
+			BufferedReader br = new BufferedReader(new FileReader(source));
 			String sCurrentLine;
 			while ((sCurrentLine = br.readLine()) != null) {
 				if (sCurrentLine.contains("W"))
-					infinity += Integer.parseInt(sCurrentLine.split(" ")[0]);
+					infinity += Double.parseDouble(sCurrentLine.split(" ")[0]);
 				else if (sCurrentLine.contains("S"))
 					infinity++;
 				clauses.add(sCurrentLine);
 			}
 			br.close();
-			BufferedWriter wr = new BufferedWriter(new FileWriter(Constants.FORMULA_FILE_NAME));
+			BufferedWriter wr = new BufferedWriter(new FileWriter(dest));
 			if (!isPartial && !isBetaWeighted)
 				wr.write("p cnf " + (varIndex - 1) + " " + clauses.size() + " " + "\n");
 			else
-				wr.write("p wcnf " + (varIndex - 1) + " " + clauses.size() + " " + infinity + "\n");
+				wr.write("p wcnf " + (varIndex - 1) + " " + clauses.size() + " " + (int) Math.ceil(infinity) + "\n");
 
 			if (isPartial && isBetaWeighted)
 				for (String s : clauses)
-					wr.append((s.contains("S") ? "" : infinity + " ") + s + "\n");
+					wr.append((s.contains("S") ? "" : (int) Math.ceil(infinity) + " ") + s + "\n");
 			else if (isPartial && !isBetaWeighted)
 				for (String s : clauses)
-					wr.append((s.contains("S") ? "1" : infinity) + " " + s + "\n");
+					wr.append((s.contains("S") ? "1" : (int) Math.ceil(infinity)) + " " + s + "\n");
 			else
 				for (String s : clauses)
 					wr.append(s + "\n");
 			wr.close();
 		} catch (IOException ioe) {
 			ioe.printStackTrace();
-		}
-	}
-
-	public void closeBufferedReader() {
-		try {
-			this.br.close();
-		} catch (IOException e) {
-			e.printStackTrace();
 		}
 	}
 }

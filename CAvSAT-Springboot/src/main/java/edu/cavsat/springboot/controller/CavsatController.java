@@ -54,6 +54,7 @@ import edu.cavsat.util.CAvSATSQLQueries;
 import edu.cavsat.util.Constants;
 import edu.cavsat.util.DBUtil;
 import edu.cavsat.util.ExecCommand;
+import edu.cavsat.util.FileUtil;
 import edu.cavsat.util.MSSQLServerImpl;
 import lombok.Data;
 
@@ -180,13 +181,13 @@ public class CavsatController {
 		}
 		System.out.println("SAT solving start at " + new Timestamp(System.currentTimeMillis()));
 		if (sqlQuery.isAggregate()) {
-			return handleAggregationQueryViaSAT(schema, sqlQuery);
+			return handleAggQueryViaSAT(schema, sqlQuery);
 		} else {
 			return handleSPJQueryViaSAT(schema, sqlQuery);
 		}
 	}
 
-	private ResponseEntity<?> handleAggregationQueryViaSAT(Schema schema, SQLQuery sqlQuery) {
+	private ResponseEntity<?> handleAggQueryViaSAT(Schema schema, SQLQuery sqlQuery) {
 		ObjectMapper mapper = new ObjectMapper();
 		ObjectNode node = mapper.createObjectNode();
 		CAvSATSQLQueries sqlQueriesImpl = new MSSQLServerImpl();
@@ -293,22 +294,23 @@ public class CavsatController {
 		CAvSATInitializerAggSQL init = new CAvSATInitializerAggSQL(sqlQueriesImpl);
 		int glb = Integer.MIN_VALUE, lub = Integer.MAX_VALUE;
 		try {
-			EncoderForPrimaryKeysAggSQL encoder = new EncoderForPrimaryKeysAggSQL(schema, con,
-					Constants.FORMULA_FILE_NAME, sqlQueriesImpl);
+			EncoderForPrimaryKeysAggSQL encoder = new EncoderForPrimaryKeysAggSQL(schema, con, sqlQueriesImpl);
 			AnswersComputerAgg computer = new AnswersComputerAgg();
 
 			init.createAnsFromCons(sqlQuery, schema, con);
 			init.createWitnesses(sqlQuery, schema, con);
 			init.createRelevantTables(sqlQuery, schema, con);
 			init.attachSequentialFactIDsToRelevantTables(sqlQuery, con);
-			encoder.createAlphaClauses(sqlQuery, true);
-			encoder.createBetaClausesForCount(sqlQuery);
-			encoder.writeFinalFormulaFile(false, true);
-			AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME);
+			encoder.createAlphaClauses(sqlQuery, true, Constants.FORMULA_FILE_NAME);
+			encoder.createBetaClausesForCount(sqlQuery, Constants.FORMULA_FILE_NAME);
+			encoder.writeFinalFormulaFile(false, true, Constants.FORMULA_FILE_NAME, Constants.FORMULA_FILE_NAME);
+			AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME,
+					Constants.SAT_OUTPUT_FILE_NAME);
 			glb = computer.getFalsifiedClausesCount(Constants.FORMULA_FILE_NAME,
 					ExecCommand.readOutput(Constants.SAT_OUTPUT_FILE_NAME));
 			encoder.encodeWPMinSATtoWPMaxSAT();
-			AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.MIN_TO_MAX_ENCODED_FORMULA_FILE_NAME);
+			AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.MIN_TO_MAX_ENCODED_FORMULA_FILE_NAME,
+					Constants.SAT_OUTPUT_FILE_NAME);
 			lub = computer.getFalsifiedClausesCount(Constants.FORMULA_FILE_NAME,
 					ExecCommand.readOutput(Constants.SAT_OUTPUT_FILE_NAME));
 
@@ -360,16 +362,13 @@ public class CavsatController {
 		CAvSATInitializerAggSQL init = new CAvSATInitializerAggSQL(sqlQueriesImpl);
 		double glb = Integer.MIN_VALUE, lub = Integer.MAX_VALUE, bound1, bound2;
 		try {
-			EncoderForPrimaryKeysAggSQL encoder = new EncoderForPrimaryKeysAggSQL(schema, con,
-					Constants.FORMULA_FILE_NAME, sqlQueriesImpl);
-
+			EncoderForPrimaryKeysAggSQL encoder = new EncoderForPrimaryKeysAggSQL(schema, con, sqlQueriesImpl);
 			init.createAnsFromCons(sqlQuery, schema, con);
 			init.createWitnesses(sqlQuery, schema, con);
 			init.createRelevantTables(sqlQuery, schema, con);
 			init.attachSequentialFactIDsToRelevantTables(sqlQuery, con);
-			encoder.createAlphaClauses(sqlQuery, true);
-			encoder.closeBufferedReader();
-			encoder.writeFinalFormulaFile(false, false);
+			encoder.createAlphaClauses(sqlQuery, true, Constants.FORMULA_FILE_NAME);
+			encoder.writeFinalFormulaFile(false, false, Constants.FORMULA_FILE_NAME, Constants.FORMULA_FILE_NAME);
 			bound1 = encoder.computeDifficultBoundMinMaxItr(sqlQuery, min);
 			bound2 = AnswersComputerAgg.computeEasyBoundMinMax(sqlQuery, con);
 			lub = min ? bound1 : bound2;
@@ -398,17 +397,31 @@ public class CavsatController {
 		CAvSATInitializerAggSQL init = new CAvSATInitializerAggSQL(sqlQueriesImpl);
 		double glb = Integer.MIN_VALUE, lub = Integer.MAX_VALUE;
 		try {
-			EncoderForPrimaryKeysAggSQL encoder = new EncoderForPrimaryKeysAggSQL(schema, con,
-					Constants.FORMULA_FILE_NAME, sqlQueriesImpl);
-
+			EncoderForPrimaryKeysAggSQL encoder = new EncoderForPrimaryKeysAggSQL(schema, con, sqlQueriesImpl);
 			init.createAnsFromCons(sqlQuery, schema, con);
 			init.createWitnesses(sqlQuery, schema, con);
 			init.createRelevantTables(sqlQuery, schema, con);
 			init.attachSequentialFactIDsToRelevantTables(sqlQuery, con);
-			encoder.createAlphaClauses(sqlQuery, true);
-			encoder.createBetaClausesForSum(sqlQuery, true);
-			encoder.writeFinalFormulaFile(true, true);
-			AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME);
+			encoder.createAlphaClauses(sqlQuery, true, Constants.FORMULA_FILE_NAME);
+			FileUtil.copyFileUsingStream(Constants.FORMULA_FILE_NAME, Constants.SECOND_FORMULA_FILE_NAME);
+
+			encoder.createBetaClausesForSum(sqlQuery, true, Constants.FORMULA_FILE_NAME);
+			encoder.createBetaClausesForSum(sqlQuery, false, Constants.SECOND_FORMULA_FILE_NAME);
+
+			encoder.writeFinalFormulaFile(true, true, Constants.FORMULA_FILE_NAME, Constants.FORMULA_FILE_NAME);
+			encoder.writeFinalFormulaFile(true, true, Constants.SECOND_FORMULA_FILE_NAME,
+					Constants.SECOND_FORMULA_FILE_NAME);
+
+			AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME,
+					Constants.SAT_OUTPUT_FILE_NAME);
+			AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.SECOND_FORMULA_FILE_NAME,
+					Constants.SECOND_SAT_OUTPUT_FILE_NAME);
+
+			lub = AnswersComputerAgg.computeSumLUB(Constants.FORMULA_FILE_NAME,
+					ExecCommand.readOutput(Constants.SAT_OUTPUT_FILE_NAME));
+			glb = AnswersComputerAgg.computeSumLUB(Constants.SECOND_FORMULA_FILE_NAME,
+					ExecCommand.readOutput(Constants.SECOND_SAT_OUTPUT_FILE_NAME));
+
 			ResultSet rsSelect = con.prepareStatement(sqlQueriesImpl.getConsAnsAgg()).executeQuery();
 			rsSelect.next();
 			double ansFromCons = rsSelect.getDouble(1);

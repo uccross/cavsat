@@ -15,7 +15,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 import edu.cavsat.model.bean.SQLQuery;
-import edu.cavsat.util.Constants;
 import edu.cavsat.util.ExecCommand;
 
 public class AnswersComputerAgg {
@@ -46,13 +45,14 @@ public class AnswersComputerAgg {
 		}
 	}
 
-	public double computeSumLUB(String formulaFileName, String assignment) {
+	public static double computeSumLUB(String formulaFileName, String assignment) {
 		Set<String> a = new HashSet<String>();
 		boolean satisfiedFlag;
 		double sum = 0;
 		String[] parts = assignment.split(" ");
 		for (String s : parts)
-			a.add(s);
+			if (!s.trim().toLowerCase().equals("v"))
+				a.add(s);
 		try (BufferedReader br = new BufferedReader(new FileReader(formulaFileName))) {
 			String sCurrentLine = br.readLine(); // reading first line, e.g., p wcnf 4 6 5
 			while ((sCurrentLine = br.readLine()) != null) {
@@ -66,8 +66,10 @@ public class AnswersComputerAgg {
 						break;
 					}
 				}
-				if (!(satisfiedFlag ^ sCurrentLine.toUpperCase().contains("N")))
+				if (!(satisfiedFlag ^ sCurrentLine.toUpperCase().contains("N"))) {
+					System.out.println(sCurrentLine);
 					sum += Double.parseDouble(sCurrentLine.split("v")[1].trim());
+				}
 			}
 			br.close();
 			return sum;
@@ -124,7 +126,8 @@ public class AnswersComputerAgg {
 		}
 	}
 
-	public static void runSolver(String solverCommand, String formulaFilename) throws SQLException {
-		ExecCommand.executeCommand(new String[] { solverCommand, formulaFilename }, Constants.SAT_OUTPUT_FILE_NAME);
+	public static void runSolver(String solverCommand, String formulaFilename, String outputFileName)
+			throws SQLException {
+		ExecCommand.executeCommand(new String[] { solverCommand, formulaFilename }, outputFileName);
 	}
 }
