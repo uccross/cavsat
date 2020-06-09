@@ -10,6 +10,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import lombok.Data;
+
+@Data
 public class Clause {
 	private Set<Integer> vars;
 	private double weight;
@@ -21,33 +24,19 @@ public class Clause {
 
 	@Override
 	public boolean equals(Object arg0) {
-		// TODO Auto-generated method stub
-		if (!(arg0 instanceof Clause))
-			return false;
-		else
-			return ((Clause) arg0).vars.equals(this.vars);
+		return equalsIgnoreWeight(arg0) && ((Clause) arg0).weight == this.weight;
 	}
 
 	@Override
 	public int hashCode() {
-		// TODO Auto-generated method stub
 		return 0;
 	}
 
-	public Set<Integer> getVars() {
-		return vars;
-	}
-
-	public void setVars(Set<Integer> vars) {
-		this.vars = vars;
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public void setDescription(String description) {
-		this.description = description;
+	public boolean equalsIgnoreWeight(Object arg0) {
+		if (null == arg0 || !(arg0 instanceof Clause))
+			return false;
+		else
+			return ((Clause) arg0).vars.equals(this.vars);
 	}
 
 	public void addVar(int var) {
@@ -56,14 +45,6 @@ public class Clause {
 
 	public void removeVar(int var) {
 		this.vars.remove(var);
-	}
-
-	public double getWeight() {
-		return weight;
-	}
-
-	public void setWeight(double weight) {
-		this.weight = weight;
 	}
 
 	public boolean isEmpty() {

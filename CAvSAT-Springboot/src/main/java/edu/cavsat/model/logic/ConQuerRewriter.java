@@ -67,6 +67,106 @@ public class ConQuerRewriter {
 				+ "), countProjSubQuery AS (" + countProjSubQuery + ") " + rewriting;
 	}
 
+	public String rewriteAggSQL(SQLQuery sqlQuery, Schema schema, short[][] joinGraph) {
+		String candidates, countViolSubQuery, contribAllSubQuery, contribConsistentSubQuery,
+				contribNonConsistentSubQuery, rewriting;
+		StringBuilder sb;
+		List<String> s1toSl = null, k1toKn = new ArrayList<String>();
+		s1toSl = sqlQuery.getSelect();
+		for (String relationName : sqlQuery.getFrom())
+			k1toKn.addAll(schema.getRelationByName(relationName).getKeyAttributesList());
+
+		// Candidates
+		sb = new StringBuilder("SELECT ");
+		sb.append(k1toKn.stream().map(k -> k + " AS c" + k).collect(Collectors.joining(", ")));
+		sb.append(" FROM " + sqlQuery.getFrom().stream().collect(Collectors.joining(", ")));
+		if (!sqlQuery.getWhereConditions().isEmpty())
+			sb.append(" WHERE " + sqlQuery.getWhereConditions().stream().collect(Collectors.joining(" AND ")));
+		candidates = sb.toString();
+
+		// countViolSubQuery
+		sb = new StringBuilder("SELECT ");
+		sb.append(k1toKn.stream().collect(Collectors.joining(", ")) + ", "
+				+ s1toSl.stream().collect(Collectors.joining(", ")) + ", "
+				+ sqlQuery.getAggAttributes().stream().collect(Collectors.joining(", ")));
+		sb.append(", RANK() OVER (PARTITION BY " + k1toKn.stream().collect(Collectors.joining(", ")) + " ORDER BY "
+				+ s1toSl.stream().collect(Collectors.joining(", ")) + ") AS rankProjection");
+		sb.append(", SUM(CASE WHEN (");
+		if (!sqlQuery.getWhereConditions().isEmpty())
+			sb.append(sqlQuery.getWhereConditions().stream().collect(Collectors.joining(" AND ")));
+		else
+			sb.append("1=1");
+		sb.append(") THEN 0 ELSE 1 END)");
+		sb.append(" OVER (PARTITION BY " + k1toKn.stream().collect(Collectors.joining(", ")) + ") AS countViol");
+		sb.append(", CASE WHEN (");
+		if (!sqlQuery.getWhereConditions().isEmpty())
+			sb.append(sqlQuery.getWhereConditions().stream().collect(Collectors.joining(" AND ")));
+		else
+			sb.append("1=1");
+		sb.append(") THEN 'YES' ELSE 'NO' END AS SATCONDS");
+		sb.append(" FROM ").append(getJoinsExpression(joinGraph, getEquiJoinConditions(sqlQuery), sqlQuery.getFrom()));
+		sb.append(" WHERE EXISTS (SELECT * FROM Candidates WHERE "
+				+ k1toKn.stream().map(k -> k + " = c" + k).collect(Collectors.joining(" AND ")) + ")");
+		countViolSubQuery = sb.toString();
+
+		// contribAllSubQuery
+		sb = new StringBuilder("SELECT ");
+		sb.append(k1toKn.stream().collect(Collectors.joining(", ")) + ", "
+				+ s1toSl.stream().collect(Collectors.joining(", ")) + ", "
+				+ sqlQuery.getAggAttributes().stream()
+						.map(a -> "MIN(" + a + ") AS BOTTOM_" + a + ", MAX(" + a + ") AS TOP_" + a)
+						.collect(Collectors.joining(", ")));
+		sb.append("MAX(rankProjection) OVER (PARTITION BY " + k1toKn.stream().collect(Collectors.joining(", "))
+				+ ") AS countProjection");
+		sb.append(", countViol");
+		sb.append(" FROM countViolSubQuery");
+		sb.append(" WHERE SATCONDS = 'YES'");
+		sb.append(" GROUP BY ").append(k1toKn.stream().collect(Collectors.joining(", ")) + ", "
+				+ s1toSl.stream().collect(Collectors.joining(", ")) + ", countViol, rankProjection");
+		contribAllSubQuery = sb.toString();
+
+		// contribConsistentSubQuery
+		sb = new StringBuilder("SELECT ");
+		sb.append(k1toKn.stream().collect(Collectors.joining(", ")) + ", "
+				+ s1toSl.stream().collect(Collectors.joining(", ")) + ", " + sqlQuery.getAggAttributes().stream()
+						.map(a -> "BOTTOM_" + a + ", TOP_" + a).collect(Collectors.joining(", "))
+				+ ", 1 as bottomCount, 1 as topCount");
+		sb.append(" FROM contribAllQuery");
+		sb.append(" WHERE countProjection = 1 AND countViol = 0");
+		contribConsistentSubQuery = sb.toString();
+
+		// contribNonConsistentSubQuery
+		sb = new StringBuilder("SELECT ");
+		sb.append(k1toKn.stream().collect(Collectors.joining(", ")) + ", "
+				+ s1toSl.stream().collect(Collectors.joining(", ")));
+		for (int i = 0; i < sqlQuery.getAggAttributes().size(); i++) {
+			sb.append(", "
+					+ getBoundsNonConsistent(sqlQuery.getAggFunctions().get(i), sqlQuery.getAggAttributes().get(i)));
+		}
+		sb.append(", 0 as bottomCount, 1 as topCount");
+		sb.append(" FROM contribAllQuery");
+		sb.append(" WHERE countProjection > 1 AND countViol >= 1");
+		contribNonConsistentSubQuery = sb.toString();
+
+		// rewriting
+		sb = new StringBuilder("SELECT ");
+		sb.append(s1toSl.stream().collect(Collectors.joining(", ")));
+		for (int i = 0; i < sqlQuery.getAggAttributes().size(); i++)
+			sb.append(", " + sqlQuery.getAggFunctions().get(i) + "(BOTTOM_" + sqlQuery.getAggAttributes().get(i)
+					+ ") AS GLB_" + sqlQuery.getAggAttributes().get(i) + ", " + sqlQuery.getAggFunctions().get(i)
+					+ "(TOP_" + sqlQuery.getAggAttributes().get(i) + ") AS LUB_" + sqlQuery.getAggAttributes().get(i));
+		sb.append(", SUM(bottomCount) AS glbCount, SUM(topCount) AS lubCount");
+		sb.append(
+				" FROM (SELECT * FROM contribConsistentSubQuery UNION ALL SELECT * FROM contribNonConsistentSubQuery) q");
+		sb.append(" GROUP BY " + s1toSl.stream().collect(Collectors.joining(", ")));
+		sb.append(" HAVING SUM(bottomCount) > 0");
+		rewriting = sb.toString();
+		return "WITH Candidates AS (" + candidates + "), countViolSubQuery AS (" + countViolSubQuery
+				+ "), contribAllSubQuery AS (" + contribAllSubQuery + "), contribConsistentSubQuery AS ("
+				+ contribConsistentSubQuery + "), contribNonConsistentSubQuery AS " + contribNonConsistentSubQuery + ")"
+				+ rewriting;
+	}
+
 	private String getJoinsExpression(short[][] joinGraph, List<String> joinConditions, List<String> relationNames) {
 		List<Integer> roots = new ArrayList<Integer>();
 		boolean isRoot;
@@ -143,5 +243,18 @@ public class ConQuerRewriter {
 			if (condition.contains(" = "))
 				joinConditions.add(condition);
 		return joinConditions;
+	}
+
+	private String getBoundsNonConsistent(String aggFunction, String attr) {
+		switch (aggFunction.toLowerCase()) {
+		case "sum":
+			return "CASE WHEN BOTTOM_" + attr + " < 0 THEN BOTTOM_" + attr + " ELSE 0 END AS BOTTOM_" + attr
+					+ ", CASE WHEN TOP_" + attr + " > 0 THEN TOP_" + attr + " ELSE 0 END AS TOP_" + attr;
+		case "min":
+			return "BOTTOM_" + attr + ", 0 AS TOP_" + attr;
+		case "max":
+			return "0 AS BOTTOM_" + attr + ", TOP_" + attr;
+		}
+		return null;
 	}
 }
