@@ -28,6 +28,8 @@ h6 {
 }
 
 textarea {
+  font-family: monospace;
+  font-size: 24px !important;
   resize: none;
 }
 

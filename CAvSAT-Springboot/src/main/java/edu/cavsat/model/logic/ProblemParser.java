@@ -199,14 +199,14 @@ public class ProblemParser {
 
 	private static Query parseQuerySQL(String sqlSyntax, Schema schema) {
 		List<String> tableNames, selectAttributes, whereConditions = new ArrayList<String>();
-		String upperSQLSyntax = sqlSyntax.toUpperCase();
-		System.out.println(upperSQLSyntax);
+		String upperSQLSyntax = sqlSyntax.toUpperCase().replaceAll("\n", " ").replaceAll("  ", " ").trim();
 		tableNames = Arrays.asList(upperSQLSyntax.split(" FROM ")[1].split(" WHERE ")[0].replaceAll(" ", "").split(","))
 				.stream().map(obj -> ((String) obj).replaceAll(" ", "")).collect(Collectors.toList());
 
 		selectAttributes = Arrays
-				.asList(upperSQLSyntax.split("SELECT ")[1].split(" FROM ")[0].replaceAll(" ", "").split(",")).stream()
-				.map(obj -> ((String) obj).replaceAll(" ", "")).collect(Collectors.toList());
+				.asList((" " + upperSQLSyntax.split("SELECT ")[1].trim() + " ").split(" FROM ")[0].replaceAll(" ", "")
+						.split(","))
+				.stream().map(obj -> ((String) obj).replaceAll(" ", "")).collect(Collectors.toList());
 
 		if (upperSQLSyntax.contains(" WHERE ")) {
 			whereConditions = Arrays.asList(upperSQLSyntax.split(" WHERE ")[1].split(" AND ")).stream()

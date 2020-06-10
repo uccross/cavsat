@@ -46,7 +46,7 @@ class QueryForm extends Component {
       kwRuntimeAnalysis: undefined,
       queryAnalysis: undefined,
     });
-    //await this.analyseQuery();
+    await this.analyseQuery();
     var evalStrategies = document.getElementsByName("eval-strategy");
     for (var i = 0; i < evalStrategies.length; i++) {
       if (evalStrategies[i].checked) {
@@ -264,7 +264,7 @@ class QueryForm extends Component {
                   spellCheck="false"
                   className="form-control"
                   id="querySyntax"
-                  rows="10"
+                  rows="5"
                 />
               </div>
             </div>

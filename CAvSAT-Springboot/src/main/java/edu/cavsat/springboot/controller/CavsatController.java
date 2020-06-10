@@ -72,9 +72,9 @@ public class CavsatController {
 		DBEnvironment dbEnv = dbEnvWithInput.dbEnv;
 		Schema schema = ProblemParser.parseSchema(dbEnv, dbEnvWithInput.schemaName);
 		SQLQuery sqlQuery = ProblemParser.parseSQLQuery(dbEnvWithInput.querySyntax, schema);
-		if (sqlQuery.isAggregate())
-			return ResponseEntity.ok().build();
-		Query query = ProblemParser.parseQuery(dbEnvWithInput.querySyntax, schema, dbEnvWithInput.queryLanguage);
+		Query query = ProblemParser.parseQuery(sqlQuery.getSQLSyntaxWithoutAggregates(), schema,
+				dbEnvWithInput.queryLanguage);
+		query.print();
 		try {
 			QueryAnalyser qa = new QueryAnalyser();
 			String jsonData = qa.analyseQuery(query, sqlQuery, schema);

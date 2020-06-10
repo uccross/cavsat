@@ -47,6 +47,7 @@ public class QueryAnalyser {
 		this.query = query;
 		ObjectMapper mapper = new ObjectMapper();
 		ObjectNode node = mapper.createObjectNode();
+
 		if (!isSelfJoinFree()) {
 			this.dataComplexity = Constants.UNKNOWN;
 			node.put("dataComplexity", getDataComplexity());
@@ -54,8 +55,23 @@ public class QueryAnalyser {
 			node.put("complexityAnalysisTime", System.currentTimeMillis() - start);
 			return mapper.writeValueAsString(node);
 		}
-
 		this.n = query.getSize();
+		this.joinGraph = new short[n][n];
+		buildJoinGraph();
+
+		if (sqlQuery.isAggregate()) {
+			if (isCForest()) {
+				this.dataComplexity = Constants.CFOREST;
+				node.put("conquerRewriting",
+						new ConQuerRewriter().rewriteAggSQL(sqlQuery, schema, getJoinGraphAdjMtrx()));
+			} else
+				this.dataComplexity = Constants.UNKNOWN;
+			node.put("complexityAnalysisTime", System.currentTimeMillis() - start);
+			node.put("dataComplexity", getDataComplexity());
+			node.put("dataComplexityDescription", getDataComplexityDescription());
+			return mapper.writeValueAsString(node);
+		}
+
 		this.m = query.getAllVars().size();
 		this.key = new ArrayList<List<String>>();
 		this.nonkey = new ArrayList<List<String>>();
@@ -77,10 +93,9 @@ public class QueryAnalyser {
 		this.co = new ArrayList<List<Atom>>();
 		this.witnessf = new ArrayList<List<Atom>>();
 		this.attack = new short[n][n];
-		this.joinGraph = new short[n][n];
+
 		initialize();
 		buildAttackGraph();
-		buildJoinGraph();
 		this.dataComplexity = findDataComplexity();
 
 		node.putPOJO("attackGraph", getAttackGraph());
@@ -382,8 +397,8 @@ public class QueryAnalyser {
 	}
 
 	private boolean areAllNonKeyToKeyJoinsFull() {
-		for (int i = 0; i < query.getSize(); i++) {
-			for (int j = 0; j < query.getSize(); j++) {
+		for (int i = 0; i < n; i++) {
+			for (int j = 0; j < n; j++) {
 				if (i != j) {
 					Atom r_i = query.getAtoms().get(i);
 					Atom r_j = query.getAtoms().get(j);
