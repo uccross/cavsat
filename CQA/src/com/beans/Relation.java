@@ -12,6 +12,7 @@ import java.util.Set;
 public class Relation {
 	private String name;
 	private List<String> attributes;
+	private List<String> types;
 	private Set<Integer> keyAttributes;
 	private Dependency dependency;
 	private Set<String> relevantAttributes;
@@ -37,6 +38,7 @@ public class Relation {
 		this.name = name;
 		this.keyAttributes = new HashSet<Integer>();
 		this.attributes = new ArrayList<String>();
+		this.types = new ArrayList<String>();
 		// this.dependency = new Dependency();
 		this.relevantAttributes = new HashSet<String>();
 	}
@@ -59,6 +61,14 @@ public class Relation {
 
 	public void setAttributes(List<String> attributes) {
 		this.attributes = attributes;
+	}
+	
+	public List<String> getTypes() {
+		return types;
+	}
+
+	public void setTypes(List<String> types) {
+		this.types = types;
 	}
 
 	public Set<Integer> getKeyAttributes() {
