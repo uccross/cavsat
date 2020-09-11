@@ -69,6 +69,14 @@ public class SQLQuery {
 	public String getSQLSyntaxWithoutAggregates() {
 		return getSQLSyntaxWithoutAggregates("");
 	}
+	
+	public List<String> getFrom() {
+		return from;
+	}
+
+	public void setFrom(List<String> from) {
+		this.from = from;
+	}
 
 	public SQLQuery getQueryWithoutAggregates() {
 		SQLQuery noAggQuery = new SQLQuery(this);
