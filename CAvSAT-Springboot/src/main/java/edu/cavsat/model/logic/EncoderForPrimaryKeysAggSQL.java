@@ -26,7 +26,6 @@ import edu.cavsat.model.bean.SQLQuery;
 import edu.cavsat.model.bean.Schema;
 import edu.cavsat.util.CAvSATSQLQueries;
 import edu.cavsat.util.Constants;
-import edu.cavsat.util.ExecCommand;
 
 /**
  * @author Akhil
@@ -116,7 +115,15 @@ public class EncoderForPrimaryKeysAggSQL {
 		}
 	}
 
-	public SQLQuery getWitnessesQuery(SQLQuery query, boolean desc) {
+	public SQLQuery getWitnessesQueryForCount(SQLQuery query) {
+		return getWitnessesQuery(query, !query.getAggAttributes().get(0).trim().equals("*"), true);
+	}
+
+	public SQLQuery getWitnessesQueryForSum(SQLQuery query) {
+		return getWitnessesQuery(query, true, true);
+	}
+
+	private SQLQuery getWitnessesQuery(SQLQuery query, boolean selectAggAttributes, boolean selectGroupingAttributes) {
 		SQLQuery betaQuery = query.getQueryWithoutAggregates();
 		for (String relationName : betaQuery.getFrom())
 			betaQuery.getSelect().add(relationName + "." + Constants.CAvSAT_FACTID_COLUMN_NAME);
@@ -129,13 +136,13 @@ public class EncoderForPrimaryKeysAggSQL {
 								.getSelect().stream().map(attribute -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX
 										+ attribute + " AS " + attribute.replaceAll("\\.", "_"))
 								.collect(Collectors.toList()));
-		for (String attribute : query.getAggAttributes())
-			if (!attribute.equals("*")) {
+		if (selectAggAttributes) {
+			for (String attribute : query.getAggAttributes()) {
 				betaQuery.getSelect().add(
 						Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute + " AS " + attribute.replaceAll("\\.", "_"));
 				betaQuery.getOrderingAttributes().add(Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute);
-				betaQuery.getOrderDesc().add(desc);
 			}
+		}
 		betaQuery.setSelectDistinct(true);
 
 		List<String> newConditions = new ArrayList<String>();
@@ -154,7 +161,7 @@ public class EncoderForPrimaryKeysAggSQL {
 
 	public void createBetaClausesForCount(SQLQuery query, String fileName) throws SQLException, IOException {
 		BufferedWriter wr = new BufferedWriter(new FileWriter(fileName, true));
-		SQLQuery betaQuery = getWitnessesQuery(query, true); // Second parameter does not matter for Count function
+		SQLQuery betaQuery = getWitnessesQueryForCount(query); // Second parameter does not matter for Count function
 		ResultSet rs = con.prepareStatement(betaQuery.getSQLSyntax()).executeQuery();
 		while (rs.next()) {
 			Clause beta = new Clause();
@@ -204,71 +211,45 @@ public class EncoderForPrimaryKeysAggSQL {
 	 * br.append(beta.getDimacsLine(true)); } br.close(); }
 	 */
 
-	public double computeDifficultBoundMinMaxItr(SQLQuery query, boolean min) throws SQLException, IOException {
-		double prev = min ? Integer.MIN_VALUE : Integer.MAX_VALUE, curr = prev;
-		BufferedWriter wr = new BufferedWriter(new FileWriter(Constants.FORMULA_FILE_NAME, true));
-		SQLQuery betaQuery = getWitnessesQuery(query, !min);
-		ResultSet rs = con.prepareStatement(betaQuery.getSQLSyntax()).executeQuery();
-		while (rs.next()) {
-			curr = rs.getDouble(2);
-			if ((min && curr > prev) || (!min && curr < prev)) {
-				AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME,
-						Constants.SAT_OUTPUT_FILE_NAME);
-				if (!ExecCommand.isSAT(Constants.SAT_OUTPUT_FILE_NAME, Constants.MAXSAT_SOLVER_NAME).isSolved()) {
-					wr.close();
-					return prev;
-				}
-			}
-			Clause beta = new Clause();
-			for (String relationName : query.getFrom())
-				beta.addVar(
-						-1 * factIDBoolVarMap.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
-			beta.setDescription("B S W v " + rs.getDouble(2));
-			wr.append(beta.getDimacsLine()).flush();
-			prev = curr;
-		}
-		AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME,
-				Constants.SAT_OUTPUT_FILE_NAME);
-		if (!ExecCommand.isSAT(Constants.SAT_OUTPUT_FILE_NAME, Constants.MAXSAT_SOLVER_NAME).isSolved()) {
-			wr.close();
-			return prev;
-		}
-		wr.close();
-		return min ? Integer.MIN_VALUE : Integer.MAX_VALUE;
-	}
-
 	public void createBetaClausesForSum(SQLQuery query, boolean lub, String fileName) throws SQLException, IOException {
 		BufferedWriter wr = new BufferedWriter(new FileWriter(fileName, true));
-		SQLQuery betaQuery = getWitnessesQuery(query, true); // Second parameter does not matter for Count function
+		SQLQuery betaQuery = getWitnessesQueryForSum(query);
 		ResultSet rs = con.prepareStatement(betaQuery.getSQLSyntax()).executeQuery();
-		List<Clause> list;
-		Clause beta;
+		List<Clause> gammaList;
+		Clause beta, gamma;
+		int y;
 		while (rs.next()) {
 			if (rs.getDouble(2) == 0)
 				continue;
 			beta = new Clause();
-			for (String relationName : query.getFrom())
-				beta.addVar(
-						-1 * factIDBoolVarMap.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
-			beta.setWeight(Math.abs(rs.getDouble(2)));
-			/*
-			 * if ((rs.getDouble(2) > 0 && lub) || (rs.getDouble(2) < 0 && !lub)) {
-			 * beta.setDescription("B S W v " + Double.toString(rs.getDouble(2)));
-			 * wr.append(beta.getDimacsLine(true)); } else if ((rs.getDouble(2) < 0 && lub)
-			 * || (rs.getDouble(2) > 0 && !lub)) { list = beta.cnfNeg(); for (Clause c :
-			 * list) { c.setDescription("B S W N v " + Double.toString(rs.getDouble(2)));
-			 * wr.append(c.getDimacsLine(true)); } }
-			 */
-			if ((rs.getDouble(2) > 0) ^ lub) {
+			if (rs.getDouble(2) > 0) {
+				for (String relationName : query.getFrom())
+					beta.addVar(-1 * factIDBoolVarMap
+							.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
+				beta.setWeight(rs.getDouble(2));
 				beta.setDescription("B S W v " + Double.toString(rs.getDouble(2)));
-				wr.append(beta.getDimacsLine(true));
 			} else {
-				list = beta.cnfNeg();
-				for (Clause c : list) {
-					c.setDescription("B S W N v " + Double.toString(rs.getDouble(2)));
-					wr.append(c.getDimacsLine(true));
+				y = varIndex++;
+				beta.addVar(y);
+				beta.setWeight(Math.abs(rs.getDouble(2)));
+				beta.setDescription("B S W N v " + Double.toString(rs.getDouble(2)));
+
+				gammaList = new ArrayList<Clause>();
+				Clause gammaLong = new Clause();
+				for (String relationName : query.getFrom()) {
+					gamma = new Clause();
+					gamma.addVar(-1 * y);
+					gamma.addVar(
+							factIDBoolVarMap.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
+					gammaList.add(gamma);
+					gammaLong.addVar(-1 * factIDBoolVarMap
+							.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
 				}
+				gammaLong.addVar(y);
+				gammaList.add(gammaLong);
+
 			}
+
 		}
 		wr.close();
 	}

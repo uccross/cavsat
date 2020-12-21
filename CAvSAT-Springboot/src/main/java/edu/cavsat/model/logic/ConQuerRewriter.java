@@ -168,8 +168,9 @@ public class ConQuerRewriter {
 			sb.append(", "
 					+ s1toSl.stream().map(a -> a.substring(a.lastIndexOf(".") + 1)).collect(Collectors.joining(", ")));
 		for (int i = 0; i < sqlQuery.getAggAttributes().size(); i++) {
-			sb.append(", "
-					+ getBoundsNonConsistent(sqlQuery.getAggFunctions().get(i), sqlQuery.getAggAttributes().get(i)));
+			if (!sqlQuery.getAggFunctions().get(i).equalsIgnoreCase("count"))
+				sb.append(", " + getBoundsNonConsistent(sqlQuery.getAggFunctions().get(i),
+						sqlQuery.getAggAttributes().get(i)));
 		}
 		sb.append(", 0 as bottomCount, 1 as topCount");
 		sb.append(" FROM contribAllSubQuery");
@@ -240,7 +241,8 @@ public class ConQuerRewriter {
 					iJoins.add(condition);
 				}
 			}
-			rjoins.append(" JOIN " + ri + " ON " + iJoins.stream().collect(Collectors.joining(" AND ")));
+			if (!iJoins.isEmpty())
+				rjoins.append(" JOIN " + ri + " ON " + iJoins.stream().collect(Collectors.joining(" AND ")));
 		}
 		StringBuilder tjoins = new StringBuilder("");
 		for (int t : roots) {

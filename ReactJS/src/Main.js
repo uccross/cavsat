@@ -14,7 +14,7 @@ class Main extends Component {
       dbEnv: null,
       databasePreview: null,
       constraints: [],
-      schemaName: localStorage.getItem("schemaName")
+      schemaName: localStorage.getItem("schemaName"),
     };
   }
 
@@ -33,7 +33,7 @@ class Main extends Component {
       localStorage.setItem("dbEnv", JSON.stringify(responseBody));
       this.setState({
         connectedToDB: true,
-        dbEnv: responseBody
+        dbEnv: responseBody,
       });
     } else {
       localStorage.removeItem("dbEnv");
@@ -42,7 +42,7 @@ class Main extends Component {
         connectedToDB: false,
         dbEnv: null,
         databasePreview: null,
-        constraints: null
+        constraints: null,
       });
     }
   }
@@ -56,16 +56,16 @@ class Main extends Component {
       method: "POST",
       headers: {
         Accept: "application/json",
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         dbEnv: this.state.dbEnv,
-        schemaName: schemaName
-      })
+        schemaName: schemaName,
+      }),
     });
     const responseBody = await response.json();
     this.setState({
-      databasePreview: responseBody
+      databasePreview: responseBody,
     });
     console.log(responseBody);
   }
@@ -79,16 +79,16 @@ class Main extends Component {
       method: "POST",
       headers: {
         Accept: "application/json",
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         dbEnv: this.state.dbEnv,
-        schemaName: schemaName
-      })
+        schemaName: schemaName,
+      }),
     });
     const responseBody = await response.json();
     this.setState({
-      constraints: responseBody
+      constraints: responseBody,
     });
   }
 

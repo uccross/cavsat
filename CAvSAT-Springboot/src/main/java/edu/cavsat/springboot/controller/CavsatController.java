@@ -68,7 +68,7 @@ public class CavsatController {
 	private Connection con;
 
 	@PostMapping("/get-query-analysis")
-	ResponseEntity<?> getGraph(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
+	public ResponseEntity<?> getGraph(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
 		DBEnvironment dbEnv = dbEnvWithInput.dbEnv;
 		Schema schema = ProblemParser.parseSchema(dbEnv, dbEnvWithInput.schemaName);
 		SQLQuery sqlQuery = ProblemParser.parseSQLQuery(dbEnvWithInput.querySyntax, schema);
@@ -86,7 +86,7 @@ public class CavsatController {
 	}
 
 	@PostMapping("/check-jdbc-connection")
-	ResponseEntity<?> getSchemas(@Valid @RequestBody DBEnvironment dbEnv) {
+	public ResponseEntity<?> getSchemas(@Valid @RequestBody DBEnvironment dbEnv) {
 		DBEnvironment responseDbEnv = dbEnv;
 		responseDbEnv.setSchemas(new ArrayList<String>());
 		String url = DBUtil.constructConnectionURL(dbEnv, "");
@@ -109,7 +109,7 @@ public class CavsatController {
 	}
 
 	@PostMapping("/get-cavsat-constraints")
-	ResponseEntity<?> getCavSATConstraints(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
+	public ResponseEntity<?> getCavSATConstraints(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
 		DBEnvironment currDbEnv = dbEnvWithInput.dbEnv;
 		String url = DBUtil.constructConnectionURL(currDbEnv, dbEnvWithInput.schemaName);
 		Connection con = null;
@@ -132,7 +132,7 @@ public class CavsatController {
 	}
 
 	@PostMapping("/prepare-cavsat-tables")
-	ResponseEntity<?> prepareCAvSATTables(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
+	public ResponseEntity<?> prepareCAvSATTables(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
 		DBEnvironment dbEnv = dbEnvWithInput.dbEnv;
 		Schema schema = ProblemParser.parseSchema(dbEnv, dbEnvWithInput.schemaName);
 		String url = DBUtil.constructConnectionURL(dbEnv, dbEnvWithInput.schemaName);
@@ -149,7 +149,7 @@ public class CavsatController {
 	}
 
 	@PostMapping("/get-database-preview")
-	ResponseEntity<?> getDatabasePreview(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
+	public ResponseEntity<?> getDatabasePreview(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
 		DBEnvironment dbEnv = dbEnvWithInput.dbEnv;
 		Schema schema = ProblemParser.parseSchema(dbEnv, dbEnvWithInput.schemaName);
 		String url = DBUtil.constructConnectionURL(dbEnv, dbEnvWithInput.schemaName);
@@ -166,7 +166,7 @@ public class CavsatController {
 	}
 
 	@PostMapping("/run-sat-module")
-	ResponseEntity<?> runSATModule(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
+	public ResponseEntity<?> runSATModule(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
 		DBEnvironment dbEnv = dbEnvWithInput.dbEnv;
 		Schema schema = ProblemParser.parseSchema(dbEnv, dbEnvWithInput.schemaName);
 		SQLQuery sqlQuery = ProblemParser.parseSQLQuery(dbEnvWithInput.querySyntax, schema);
@@ -369,7 +369,8 @@ public class CavsatController {
 			init.attachSequentialFactIDsToRelevantTables(sqlQuery, con);
 			encoder.createAlphaClauses(sqlQuery, true, Constants.FORMULA_FILE_NAME);
 			encoder.writeFinalFormulaFile(false, false, Constants.FORMULA_FILE_NAME, Constants.FORMULA_FILE_NAME);
-			bound1 = encoder.computeDifficultBoundMinMaxItr(sqlQuery, min);
+			// bound1 = encoder.computeDifficultBoundMinMaxItr(sqlQuery, min);
+			bound1 = Integer.MAX_VALUE;
 			bound2 = AnswersComputerAgg.computeEasyBoundMinMax(sqlQuery, con);
 			lub = min ? bound1 : bound2;
 			glb = min ? bound2 : bound1;
@@ -614,7 +615,7 @@ public class CavsatController {
 	 */
 
 	@PostMapping("/run-conquer-rewriting")
-	ResponseEntity<?> runConQuerSQLRewriting(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
+	public ResponseEntity<?> runConQuerSQLRewriting(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
 		System.out.println("ConQuer start at " + new Timestamp(System.currentTimeMillis()));
 		DBEnvironment dbEnv = dbEnvWithInput.dbEnv;
 		CAvSATSQLQueries sqlQueriesImpl = new MSSQLServerImpl();
@@ -653,7 +654,7 @@ public class CavsatController {
 	}
 
 	@PostMapping("/run-kw-rewriting")
-	ResponseEntity<?> runKWSQLRewriting(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
+	public ResponseEntity<?> runKWSQLRewriting(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
 		System.out.println("KW start at " + new Timestamp(System.currentTimeMillis()));
 		DBEnvironment dbEnv = dbEnvWithInput.dbEnv;
 		CAvSATSQLQueries sqlQueriesImpl = new MSSQLServerImpl();
@@ -692,7 +693,7 @@ public class CavsatController {
 	}
 
 	@PostMapping("/compute-potential-answers")
-	ResponseEntity<?> computePotentialAnswers(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
+	public ResponseEntity<?> computePotentialAnswers(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
 		System.out.println("Pot start at " + new Timestamp(System.currentTimeMillis()));
 		DBEnvironment dbEnv = dbEnvWithInput.dbEnv;
 		Schema schema = ProblemParser.parseSchema(dbEnv, dbEnvWithInput.schemaName);
@@ -794,7 +795,7 @@ public class CavsatController {
 	}
 
 	@Data
-	private static class DBEnvWithInput {
+	public static class DBEnvWithInput {
 		private DBEnvironment dbEnv;
 		private String schemaName;
 		private String querySyntax;

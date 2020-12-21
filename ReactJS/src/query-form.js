@@ -233,6 +233,7 @@ class QueryForm extends Component {
                   name="inlineRadioOptions"
                   id="inlineRadio2"
                   value="fol"
+                  disabled
                 />
                 <label className="form-check-label" htmlFor="inlineRadio2">
                   First-order Logic
@@ -251,9 +252,6 @@ class QueryForm extends Component {
                   SQL
                 </label>
               </div>
-              <div className="form-check form-check-inline float-right">
-                <h6>Query Syntax</h6>
-              </div>
             </div>
           </div>
           <form>
@@ -264,7 +262,7 @@ class QueryForm extends Component {
                   spellCheck="false"
                   className="form-control"
                   id="querySyntax"
-                  rows="5"
+                  rows="3"
                 />
               </div>
             </div>
