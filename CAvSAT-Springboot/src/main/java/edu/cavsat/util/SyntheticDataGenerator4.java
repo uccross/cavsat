@@ -1,23 +1,18 @@
-package com.util;
+package edu.cavsat.util;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.HashMap;
-import java.util.HashSet;
- 
 
-import com.beans.SQLQuery;
-import com.beans.Relation;
-import com.beans.Schema;
-import com.beans.Dependency;
+import edu.cavsat.model.bean.Relation;
+import edu.cavsat.model.bean.SQLQuery;
+import edu.cavsat.model.bean.Schema;
 
 
 public class SyntheticDataGenerator4 {
@@ -232,6 +227,26 @@ public class SyntheticDataGenerator4 {
 			dbInsert.executeBatch();
 		}
 	}
+	
+	public void generateWitnesses(Connection connection, SQLQuery query, Schema schema, int amount) throws SQLException
+	{
+		List<PreparedStatement> dbInserts = new ArrayList<PreparedStatement>();
+		Set<String> set = new HashSet<String>(query.getFrom());
+		List<Relation> newRelations = new ArrayList<Relation>(schema.getRelationsByNames(set));
+		int tables = newRelations.size();
+		for (Relation atom : newRelations) 
+		{
+			dbInserts.add(getInsertStatement(atom, connection));
+		}
+		
+		for(int i = 0; i < amount; i++) {
+			
+			for (Relation atom : newRelations) {
+				
+			}
+		}
+	}
+
 	
 	//Inputs is the relation to be dropped and then created, and the connection to be used
 	//Drops the relation if already exists and then creates a new one that is blank
