@@ -8,30 +8,17 @@ package edu.cavsat.model.bean;
 import java.util.HashSet;
 import java.util.Set;
 
+import lombok.Data;
+
+@Data
 public class Schema {
 	Set<Relation> relations;
-	Set<DenialConstraint> constraints;
+	Set<String> denialConstraints;
 
 	public Schema() {
 		super();
 		this.relations = new HashSet<Relation>();
-		this.constraints = new HashSet<DenialConstraint>();
-	}
-
-	public Set<Relation> getRelations() {
-		return relations;
-	}
-
-	public void setRelations(Set<Relation> relations) {
-		this.relations = relations;
-	}
-
-	public Set<DenialConstraint> getConstraints() {
-		return constraints;
-	}
-
-	public void setConstraints(Set<DenialConstraint> constraints) {
-		this.constraints = constraints;
+		this.denialConstraints = new HashSet<String>();
 	}
 
 	public String getAttributeNameByIndex(String relationName, int index) {
@@ -69,7 +56,7 @@ public class Schema {
 		for (Relation r : this.relations) {
 			r.print();
 		}
-		for (DenialConstraint constraint : this.constraints) {
+		for (String constraint : this.denialConstraints) {
 			System.out.println(constraint);
 		}
 		System.out.println("-------------------------------------------------------------");

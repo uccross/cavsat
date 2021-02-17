@@ -6,6 +6,7 @@
 package edu.cavsat.util;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
@@ -40,7 +41,6 @@ public class ExecCommand {
 			String sCurrentLine;
 			while ((sCurrentLine = br.readLine()) != null) {
 				if (sCurrentLine.startsWith("v ")) {
-					System.out.println(sCurrentLine);
 					br.close();
 					return sCurrentLine;
 				}
@@ -50,6 +50,20 @@ public class ExecCommand {
 		} catch (IOException e) {
 			e.printStackTrace();
 			return null;
+		}
+	}
+
+	public static void writeSolverAnalysis(String filename, BufferedWriter wrAnalysis) {
+		try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+			String sCurrentLine;
+			while ((sCurrentLine = br.readLine()) != null) {
+				if (sCurrentLine.startsWith("c SAT: #calls") || sCurrentLine.startsWith("c CPLEX: #calls")
+						|| sCurrentLine.startsWith("c GREEDY: #calls"))
+					wrAnalysis.append(sCurrentLine + "\n");
+			}
+			br.close();
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 	}
 
@@ -89,7 +103,7 @@ public class ExecCommand {
 			return stats;
 		}
 	}
-	
+
 	public static int getFalsifiedSoftsMaxHS(String filename) {
 		try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
 			String sCurrentLine;

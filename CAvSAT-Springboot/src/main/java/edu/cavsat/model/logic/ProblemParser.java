@@ -76,6 +76,9 @@ public class ProblemParser {
 											.collect(Collectors.toList()).indexOf(keyAttribute.toLowerCase()) + 1);
 						}
 						break;
+					case "denial constraint":
+						schema.getDenialConstraints().add(constraintDefinition);
+						break;
 
 					default:
 						break;
@@ -140,9 +143,8 @@ public class ProblemParser {
 			selectAttributes.clear();
 		for (String attribute : selectAttributes) {
 			if (attribute.matches("^(SUM|AVG|MIN|MAX|COUNT)\\(.+\\)")) {
-				String[] subparts = attribute.split("[()]");
-				query.getAggFunctions().add(subparts[0]);
-				query.getAggAttributes().add(subparts[1]);
+				query.getAggFunctions().add(attribute.substring(0, attribute.indexOf('(')));
+				query.getAggAttributes().add(attribute.substring(attribute.indexOf('(') + 1, attribute.length() - 1));
 				query.setAggregate(true);
 			}
 		}
@@ -193,7 +195,6 @@ public class ProblemParser {
 		if (upperSQLSyntax.contains("ORDER BY"))
 			query.setOrderingAttributes(Arrays.asList(parts.get(i++).split(",")).stream()
 					.map(str -> str.replaceAll(" ", "")).collect(Collectors.toList()));
-		System.out.println(query.getSQLSyntax());
 		return query;
 	}
 

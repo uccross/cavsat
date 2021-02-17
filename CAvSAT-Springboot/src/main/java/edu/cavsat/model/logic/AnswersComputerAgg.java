@@ -45,7 +45,16 @@ public class AnswersComputerAgg {
 		}
 	}
 
-	public static double computeSumLUB(String formulaFileName, String assignment) {
+	public static double computeSum(SQLQuery witnessQuery, String formulaFileName, String assignment, Connection con)
+			throws SQLException {
+		String aggAttribute = witnessQuery.getSelect().get(0).split(" AS ")[0];
+		witnessQuery.getWhereConditions().add(aggAttribute + " > 0");
+		ResultSet rs = con.prepareStatement(witnessQuery.getSQLSyntax()).executeQuery();
+		rs.next();
+		return rs.getDouble(1) - getSumOfWeightsOfSatisfiedClauses(formulaFileName, assignment);
+	}
+
+	private static double getSumOfWeightsOfSatisfiedClauses(String formulaFileName, String assignment) {
 		Set<String> a = new HashSet<String>();
 		boolean satisfiedFlag;
 		double sum = 0;
@@ -56,7 +65,7 @@ public class AnswersComputerAgg {
 		try (BufferedReader br = new BufferedReader(new FileReader(formulaFileName))) {
 			String sCurrentLine = br.readLine(); // reading first line, e.g., p wcnf 4 6 5
 			while ((sCurrentLine = br.readLine()) != null) {
-				if (sCurrentLine.toUpperCase().contains("A"))
+				if (sCurrentLine.toUpperCase().contains("H"))
 					continue;
 				parts = sCurrentLine.split(" ");
 				satisfiedFlag = false;
@@ -66,10 +75,8 @@ public class AnswersComputerAgg {
 						break;
 					}
 				}
-				if (!(satisfiedFlag ^ sCurrentLine.toUpperCase().contains("N"))) {
-					System.out.println(sCurrentLine);
+				if (satisfiedFlag)
 					sum += Double.parseDouble(sCurrentLine.split("v")[1].trim());
-				}
 			}
 			br.close();
 			return sum;
@@ -126,8 +133,11 @@ public class AnswersComputerAgg {
 		}
 	}
 
-	public static void runSolver(String solverCommand, String formulaFilename, String outputFileName)
+	public static long runSolver(String solverCommand, String formulaFilename, String outputFileName)
 			throws SQLException {
+		long time = System.currentTimeMillis();
 		ExecCommand.executeCommand(new String[] { solverCommand, formulaFilename }, outputFileName);
+		time = System.currentTimeMillis() - time;
+		return time;
 	}
 }

@@ -56,5 +56,5 @@ public class Constants {
 	public static final String MAXSAT_COMMAND = "maxhs";
 	public static final String MINSAT_SOLVER_NAME = "MinSatz";
 	public static final String MINSAT_COMMAND = "MinSatz2013";
-	
+	public static final String CAvSAT_ANALYSIS_FILE_NAME = "cavsat-analysis";
 }

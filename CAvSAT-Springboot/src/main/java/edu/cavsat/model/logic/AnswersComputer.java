@@ -105,7 +105,8 @@ public class AnswersComputer {
 		return sqlQueriesImpl.getQueryResultPreviewAsJSON(sqlQuery, con, returnRowsLimit);
 	}
 
-	public long eliminatePotentialAnswersInMemory(String filename, String infinity) throws SQLException {
+	public long eliminatePotentialAnswersInMemory(String filename, String infinity, BufferedWriter wrAnalysis)
+			throws SQLException, IOException {
 		boolean moreAnswers = true;
 		BufferedWriter wr = null;
 		ResultSet rsSelect = con
@@ -120,7 +121,9 @@ public class AnswersComputer {
 		int i = 0;
 		long start, time = 0;
 		while (moreAnswers) {
-			System.out.println("iteration " + (i++) + ", remaining potential answers: " + consistentAnswers.size());
+			i++;
+			// System.out.println("iteration " + (i++) + ", remaining potential answers: " +
+			// consistentAnswers.size());
 			assignment.clear();
 			moreAnswers = false;
 			start = System.currentTimeMillis();
@@ -134,6 +137,7 @@ public class AnswersComputer {
 				e1.printStackTrace();
 			}
 			output = ExecCommand.readOutput(Constants.SAT_OUTPUT_FILE_NAME);
+			ExecCommand.writeSolverAnalysis(Constants.SAT_OUTPUT_FILE_NAME, wrAnalysis);
 			StringTokenizer st = new StringTokenizer(output.substring(1), " ");
 			while (st.hasMoreTokens())
 				assignment.add(Integer.parseInt(st.nextToken()));
@@ -154,7 +158,7 @@ public class AnswersComputer {
 				e.printStackTrace();
 			}
 		}
-
+		wrAnalysis.append("Iterations: " + i + "\n");
 		// con.prepareStatement("DROP TABLE IF EXISTS
 		// CAVSAT_CONSISTENT_PVARS").execute();
 		con.prepareStatement("CREATE TABLE CAVSAT_CONSISTENT_PVARS (CAVSAT_PVAR INT PRIMARY KEY)").execute();
@@ -168,8 +172,6 @@ public class AnswersComputer {
 		con.prepareStatement("DELETE FROM " + Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME
 				+ " WHERE NOT EXISTS (SELECT C.CAVSAT_PVAR FROM CAVSAT_CONSISTENT_PVARS C WHERE C.CAVSAT_PVAR = "
 				+ Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME + ".CAVSAT_PVAR)").execute();
-		System.out.println("finished deleting");
-
 		return time;
 	}
 

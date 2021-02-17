@@ -79,7 +79,7 @@ public class EncoderForPrimaryKeysAggSQL {
 				}
 				if (!receivedValue.equals(curValue)) {
 					if (null != clause) {
-						clause.setDescription("A");
+						clause.setDescription("A H");
 						wr.append(clause.getDimacsLine());
 						if (exactlyOne)
 							encodeAtMostOne(new ArrayList<Integer>(clause.getVars()), wr);
@@ -92,7 +92,7 @@ public class EncoderForPrimaryKeysAggSQL {
 				}
 			}
 			if (null != clause) {
-				clause.setDescription("A");
+				clause.setDescription("A H");
 				wr.append(clause.getDimacsLine());
 				if (exactlyOne)
 					encodeAtMostOne(new ArrayList<Integer>(clause.getVars()), wr);
@@ -109,7 +109,7 @@ public class EncoderForPrimaryKeysAggSQL {
 				clause = new Clause();
 				clause.addVar(vars.get(i) * -1);
 				clause.addVar(vars.get(j) * -1);
-				clause.setDescription("A");
+				clause.setDescription("A H");
 				wr.append(clause.getDimacsLine());
 			}
 		}
@@ -125,25 +125,32 @@ public class EncoderForPrimaryKeysAggSQL {
 
 	private SQLQuery getWitnessesQuery(SQLQuery query, boolean selectAggAttributes, boolean selectGroupingAttributes) {
 		SQLQuery betaQuery = query.getQueryWithoutAggregates();
+		if (selectAggAttributes) {
+			for (String attribute : query.getAggAttributes()) {
+				betaQuery.getSelect().add(attribute);
+				// betaQuery.getOrderingAttributes().add(Constants.CAvSAT_RELEVANT_TABLE_PREFIX
+				// + attribute);
+			}
+		}
 		for (String relationName : betaQuery.getFrom())
 			betaQuery.getSelect().add(relationName + "." + Constants.CAvSAT_FACTID_COLUMN_NAME);
+
+		List<String> selectAttributes = new ArrayList<String>();
+		for (String attr : betaQuery.getSelect()) {
+			for (String relationName : betaQuery.getFrom())
+				attr = attr.replaceAll(relationName + ".", Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName + ".");
+			selectAttributes.add(attr + " AS " + attr.replaceAll("[^A-Za-z0-9]", "_"));
+		}
+		betaQuery.setSelect(selectAttributes);
 		betaQuery.setFrom(
 				query.getFrom().stream().map(relationName -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName)
 						.collect(Collectors.toList()));
-		betaQuery
-				.setSelect(
-						betaQuery
-								.getSelect().stream().map(attribute -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX
-										+ attribute + " AS " + attribute.replaceAll("\\.", "_"))
-								.collect(Collectors.toList()));
-		if (selectAggAttributes) {
-			for (String attribute : query.getAggAttributes()) {
-				betaQuery.getSelect().add(
-						Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute + " AS " + attribute.replaceAll("\\.", "_"));
-				betaQuery.getOrderingAttributes().add(Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute);
-			}
-		}
-		betaQuery.setSelectDistinct(true);
+
+		/*
+		 * betaQuery .setSelect( betaQuery .getSelect().stream().map(attribute ->
+		 * Constants.CAvSAT_RELEVANT_TABLE_PREFIX + attribute + " AS " +
+		 * attribute.replaceAll("\\.", "_")) .collect(Collectors.toList()));
+		 */ betaQuery.setSelectDistinct(true);
 
 		List<String> newConditions = new ArrayList<String>();
 		String newCondition;
@@ -155,7 +162,6 @@ public class EncoderForPrimaryKeysAggSQL {
 			newConditions.add(newCondition);
 		}
 		betaQuery.setWhereConditions(newConditions);
-		System.out.println("Beta clauses query:\n" + betaQuery.getSQLSyntax());
 		return betaQuery;
 	}
 
@@ -166,8 +172,8 @@ public class EncoderForPrimaryKeysAggSQL {
 		while (rs.next()) {
 			Clause beta = new Clause();
 			for (String relationName : query.getFrom())
-				beta.addVar(
-						-1 * factIDBoolVarMap.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
+				beta.addVar(-1 * factIDBoolVarMap.get(rs.getInt(Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName
+						+ "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
 			beta.setDescription("B S");
 			wr.append(beta.getDimacsLine());
 		}
@@ -215,41 +221,38 @@ public class EncoderForPrimaryKeysAggSQL {
 		BufferedWriter wr = new BufferedWriter(new FileWriter(fileName, true));
 		SQLQuery betaQuery = getWitnessesQueryForSum(query);
 		ResultSet rs = con.prepareStatement(betaQuery.getSQLSyntax()).executeQuery();
-		List<Clause> gammaList;
 		Clause beta, gamma;
 		int y;
 		while (rs.next()) {
-			if (rs.getDouble(2) == 0)
+			double aggAttrVal = rs.getDouble(1); // Aggregation attribute is first
+			if (aggAttrVal == 0)
 				continue;
 			beta = new Clause();
-			if (rs.getDouble(2) > 0) {
+			if (aggAttrVal > 0) {
 				for (String relationName : query.getFrom())
-					beta.addVar(-1 * factIDBoolVarMap
-							.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
-				beta.setWeight(rs.getDouble(2));
-				beta.setDescription("B S W v " + Double.toString(rs.getDouble(2)));
-			} else {
+					beta.addVar(-1 * factIDBoolVarMap.get(rs.getInt(Constants.CAvSAT_RELEVANT_TABLE_PREFIX
+							+ relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
+			} else if (aggAttrVal < 0) {
 				y = varIndex++;
 				beta.addVar(y);
-				beta.setWeight(Math.abs(rs.getDouble(2)));
-				beta.setDescription("B S W N v " + Double.toString(rs.getDouble(2)));
-
-				gammaList = new ArrayList<Clause>();
 				Clause gammaLong = new Clause();
 				for (String relationName : query.getFrom()) {
 					gamma = new Clause();
 					gamma.addVar(-1 * y);
-					gamma.addVar(
-							factIDBoolVarMap.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
-					gammaList.add(gamma);
-					gammaLong.addVar(-1 * factIDBoolVarMap
-							.get(rs.getInt(relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
+					gamma.addVar(factIDBoolVarMap.get(rs.getInt(Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationName
+							+ "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
+					gamma.setDescription("G H");
+					wr.append(gamma.getDimacsLine());
+					gammaLong.addVar(-1 * factIDBoolVarMap.get(rs.getInt(Constants.CAvSAT_RELEVANT_TABLE_PREFIX
+							+ relationName + "_" + Constants.CAvSAT_FACTID_COLUMN_NAME)));
 				}
 				gammaLong.addVar(y);
-				gammaList.add(gammaLong);
-
+				gammaLong.setDescription("G H");
+				wr.append(gammaLong.getDimacsLine());
 			}
-
+			beta.setWeight(Math.abs(aggAttrVal));
+			beta.setDescription("B S W v " + Double.toString(aggAttrVal));
+			wr.append(beta.getDimacsLine(true));
 		}
 		wr.close();
 	}
@@ -257,7 +260,7 @@ public class EncoderForPrimaryKeysAggSQL {
 	/**
 	 * Kuegel's encoding from Weighted Partial MinSAT to Weighted Partial MaxSAT
 	 */
-	public void encodeWPMinSATtoWPMaxSAT() {
+	public void encodeWPMinSATtoWPMaxSAT(BufferedWriter wrAnalysis) {
 		List<String> clauses = new ArrayList<String>();
 		String sCurrentLine, infinity = "-1", nVars = "-1", weight = "", previousClause = "", lit;
 		String[] parts;
@@ -275,19 +278,20 @@ public class EncoderForPrimaryKeysAggSQL {
 				} else {
 					parts = sCurrentLine.split(" ");
 					weight = parts[0];
-					previousClause = "";
+					previousClause = " ";
 					for (int i = 1; i < parts.length; i++) {
 						lit = parts[i].trim();
 						if (lit.equals("0"))
 							break;
-						clauses.add(weight + " " + previousClause
-								+ (lit.startsWith("-") ? lit.replace("-", "") : "-" + lit) + " 0");
-						previousClause = previousClause + lit;
+						clauses.add(weight + previousClause + (lit.startsWith("-") ? lit.replace("-", "") : "-" + lit)
+								+ " 0");
+						previousClause = previousClause + lit + " ";
 					}
 				}
 			}
 			br.close();
 			wr.write("p wcnf " + nVars + " " + clauses.size() + " " + infinity + "\n");
+			wrAnalysis.append("MinToMax #v " + nVars + " #c " + clauses.size() + " infinity " + infinity + "\n");
 			for (String s : clauses)
 				wr.append(s + "\n");
 			wr.close();
@@ -296,7 +300,8 @@ public class EncoderForPrimaryKeysAggSQL {
 		}
 	}
 
-	public void writeFinalFormulaFile(boolean isBetaWeighted, boolean isPartial, String source, String dest) {
+	public void writeFinalFormulaFile(boolean isBetaWeighted, boolean isPartial, String source, String dest,
+			BufferedWriter wrAnalysis) {
 		Set<String> clauses = new HashSet<String>();
 		double infinity = 1;
 		try {
@@ -311,11 +316,14 @@ public class EncoderForPrimaryKeysAggSQL {
 			}
 			br.close();
 			BufferedWriter wr = new BufferedWriter(new FileWriter(dest));
-			if (!isPartial && !isBetaWeighted)
+			if (!isPartial && !isBetaWeighted) {
 				wr.write("p cnf " + (varIndex - 1) + " " + clauses.size() + " " + "\n");
-			else
+				wrAnalysis.append("#v " + (varIndex - 1) + " #c " + clauses.size() + "\n");
+			} else {
 				wr.write("p wcnf " + (varIndex - 1) + " " + clauses.size() + " " + (int) Math.ceil(infinity) + "\n");
-
+				wrAnalysis.append("#v " + (varIndex - 1) + " #c " + clauses.size() + " infinity "
+						+ (int) Math.ceil(infinity) + "\n");
+			}
 			if (isPartial && isBetaWeighted)
 				for (String s : clauses)
 					wr.append((s.contains("S") ? "" : (int) Math.ceil(infinity) + " ") + s + "\n");

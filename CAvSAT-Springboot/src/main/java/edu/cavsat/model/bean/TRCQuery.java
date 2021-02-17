@@ -269,7 +269,6 @@ public class TRCQuery {
 				sb.append(")");
 			}
 			String formula = sb.toString();
-			System.out.println(formula);
 			return formula;
 		}
 

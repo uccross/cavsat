@@ -12,7 +12,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -194,9 +193,6 @@ public class QueryAnalyser {
 					}
 				}
 			}
-			System.out.println("FPlus of " + query.getAtoms().get(f) + "{"
-					+ fplus.stream().collect(Collectors.joining(",")) + "}");
-			System.out.println();
 			Set<String> uSlashFPlus = new HashSet<String>(query.getAllVars());
 			uSlashFPlus.removeAll(fplus);
 			uSlashFPlus.removeAll(query.getFreeVars());
@@ -265,7 +261,7 @@ public class QueryAnalyser {
 		}
 	}
 
-	public void print() {
+	public void print1() {
 		System.out.print("Data Complexity: ");
 		switch (this.dataComplexity) {
 		case Constants.CFOREST:

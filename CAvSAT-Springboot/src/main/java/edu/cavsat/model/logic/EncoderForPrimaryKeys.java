@@ -177,15 +177,12 @@ public class EncoderForPrimaryKeys {
 				}
 			}
 		}
-		System.out.println(varAttrMap);
-		System.out.println(whereConditions);
 		// Create table with distinct potential answers and add pVars to them
 		con.prepareStatement(
 				sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME))
 				.execute();
 		String distinctPotentialAnswers = sqlQueriesImpl.getDistinctPotentialAnswersQuery(selectAttributes, fromTables,
 				Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME, whereConditions);
-		System.out.println("From init\n" + distinctPotentialAnswers);
 		con.prepareStatement(distinctPotentialAnswers).execute();
 		con.prepareStatement("ALTER TABLE " + Constants.CAvSAT_RELEVANT_DISTINCT_POTENTIAL_ANS_TABLE_NAME
 				+ " ADD CAVSAT_PVAR INT IDENTITY(" + varIndex + ",1) PRIMARY KEY").execute();

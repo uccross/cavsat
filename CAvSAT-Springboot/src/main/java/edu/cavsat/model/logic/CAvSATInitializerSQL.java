@@ -94,7 +94,6 @@ public class CAvSATInitializerSQL {
 			ansFromConsQuery.getSelect().add("1 AS " + Constants.BOOL_CONS_ANSWER_COLUMN_NAME);
 		ansFromConsQuery.setWhereConditions(newConditions);
 		ansFromConsQuery.setSelectDistinct(true);
-		System.out.println(ansFromConsQuery.getSQLSyntax(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME));
 		con.prepareStatement(ansFromConsQuery.getSQLSyntax(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME)).execute();
 	}
 
@@ -120,7 +119,6 @@ public class CAvSATInitializerSQL {
 		}
 		witnessQuery.setSelect(selectAttributes);
 		witnessQuery.setSelectDistinct(true);
-		System.out.println(witnessQuery.getSQLSyntax(Constants.CAvSAT_WITNESSES_TABLE_NAME));
 		con.prepareStatement(witnessQuery.getSQLSyntax(Constants.CAvSAT_WITNESSES_TABLE_NAME)).execute();
 	}
 

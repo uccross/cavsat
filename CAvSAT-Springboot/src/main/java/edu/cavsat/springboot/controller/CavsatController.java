@@ -5,7 +5,9 @@
 
 package edu.cavsat.springboot.controller;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -54,7 +56,6 @@ import edu.cavsat.util.CAvSATSQLQueries;
 import edu.cavsat.util.Constants;
 import edu.cavsat.util.DBUtil;
 import edu.cavsat.util.ExecCommand;
-import edu.cavsat.util.FileUtil;
 import edu.cavsat.util.MSSQLServerImpl;
 import lombok.Data;
 
@@ -66,6 +67,17 @@ import lombok.Data;
 @RequestMapping("/api")
 public class CavsatController {
 	private Connection con;
+	private BufferedWriter wr;
+
+	public CavsatController() {
+		super();
+		this.wr = new BufferedWriter(new OutputStreamWriter(System.out));
+	}
+
+	public CavsatController(BufferedWriter wr) {
+		super();
+		this.wr = wr;
+	}
 
 	@PostMapping("/get-query-analysis")
 	public ResponseEntity<?> getGraph(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
@@ -74,7 +86,6 @@ public class CavsatController {
 		SQLQuery sqlQuery = ProblemParser.parseSQLQuery(dbEnvWithInput.querySyntax, schema);
 		Query query = ProblemParser.parseQuery(sqlQuery.getSQLSyntaxWithoutAggregates(), schema,
 				dbEnvWithInput.queryLanguage);
-		query.print();
 		try {
 			QueryAnalyser qa = new QueryAnalyser();
 			String jsonData = qa.analyseQuery(query, sqlQuery, schema);
@@ -166,7 +177,7 @@ public class CavsatController {
 	}
 
 	@PostMapping("/run-sat-module")
-	public ResponseEntity<?> runSATModule(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
+	public ResponseEntity<?> runSATModule(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) throws IOException {
 		DBEnvironment dbEnv = dbEnvWithInput.dbEnv;
 		Schema schema = ProblemParser.parseSchema(dbEnv, dbEnvWithInput.schemaName);
 		SQLQuery sqlQuery = ProblemParser.parseSQLQuery(dbEnvWithInput.querySyntax, schema);
@@ -175,16 +186,22 @@ public class CavsatController {
 			if (con == null)
 				con = DriverManager.getConnection(DBUtil.constructConnectionURL(dbEnv, dbEnvWithInput.schemaName),
 						dbEnv.getUsername(), dbEnv.getPassword());
-			dropTables(sqlQueriesImpl, sqlQuery);
+			dropTables(sqlQueriesImpl, sqlQuery, true);
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		System.out.println("SAT solving start at " + new Timestamp(System.currentTimeMillis()));
+		ResponseEntity<?> re;
+		long time = System.currentTimeMillis();
+		// System.out.println("SAT solving start at " + new
+		// Timestamp(System.currentTimeMillis()));
 		if (sqlQuery.isAggregate()) {
-			return handleAggQueryViaSAT(schema, sqlQuery);
+			re = handleAggQueryViaSAT(schema, sqlQuery);
 		} else {
-			return handleSPJQueryViaSAT(schema, sqlQuery);
+			re = handleSPJQueryViaSAT(schema, sqlQuery);
 		}
+		time = System.currentTimeMillis() - time;
+		wr.append("Completely done in " + Long.toString(time) + "\n\n");
+		return re;
 	}
 
 	private ResponseEntity<?> handleAggQueryViaSAT(Schema schema, SQLQuery sqlQuery) {
@@ -197,11 +214,8 @@ public class CavsatController {
 		double[] bounds = null;
 		boolean underlyingConsAns = false;
 		try {
-			con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_AGG_FINAL_ANSWERS_TABLE_NAME))
-					.execute();
 			if (sqlQuery.getGroupingAttributes().isEmpty()) {
 				SQLQuery underlyingCQ = sqlQuery.getQueryWithoutAggregates();
-				System.out.println(underlyingCQ.getSQLSyntax());
 				handleSPJQueryViaSAT(schema, underlyingCQ);
 				rsSelect = con
 						.prepareStatement(sqlQueriesImpl.getNumberOfRows(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME))
@@ -210,7 +224,7 @@ public class CavsatController {
 				rsSelect.next();
 				if (rsSelect.getInt(1) != 0) {
 					underlyingConsAns = true;
-					dropTables(sqlQueriesImpl, underlyingCQ);
+					dropTables(sqlQueriesImpl, underlyingCQ, true);
 					bounds = handleScalarAggQuery(schema, sqlQuery);
 					psInsert = con.prepareStatement(sqlQueriesImpl.insertIntoFinalAnswersAggTable(
 							new ArrayList<String>(Arrays.asList(Constants.BOOL_CONS_ANSWER_COLUMN_NAME,
@@ -238,15 +252,15 @@ public class CavsatController {
 						.executeQuery();
 
 				psInsert = con.prepareStatement(sqlQueriesImpl.insertIntoFinalAnswersAggTable(answerAttributes));
-				while (rsSelect.next()) {
-					dropTables(sqlQueriesImpl, underlyingCQ);
+				int topK = 10, nGroups = 0;
+				while (rsSelect.next() && (topK-- > 0)) {
+					nGroups++;
+					dropTables(sqlQueriesImpl, underlyingCQ, false);
 					groupWiseCQ.setWhereConditions(new ArrayList<String>(sqlQuery.getWhereConditions()));
 					for (String attribute : underlyingCQ.getSelect()) {
 						groupWiseCQ.getWhereConditions()
 								.add(attribute + " = '" + rsSelect.getString(attribute.split("\\.")[1]) + "'");
 					}
-					con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME))
-							.execute();
 					bounds = handleScalarAggQuery(schema, groupWiseCQ);
 					for (int i = 0; i < sqlQuery.getGroupingAttributes().size(); i++)
 						psInsert.setString(i + 1, rsSelect.getString(i + 1));
@@ -254,6 +268,7 @@ public class CavsatController {
 					psInsert.setDouble(sqlQuery.getGroupingAttributes().size() + 2, bounds[1]);
 					psInsert.addBatch();
 				}
+				wr.append("nGroups: " + nGroups + "\n");
 				psInsert.executeBatch();
 			}
 
@@ -303,14 +318,18 @@ public class CavsatController {
 			init.attachSequentialFactIDsToRelevantTables(sqlQuery, con);
 			encoder.createAlphaClauses(sqlQuery, true, Constants.FORMULA_FILE_NAME);
 			encoder.createBetaClausesForCount(sqlQuery, Constants.FORMULA_FILE_NAME);
-			encoder.writeFinalFormulaFile(false, true, Constants.FORMULA_FILE_NAME, Constants.FORMULA_FILE_NAME);
-			AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME,
+			encoder.writeFinalFormulaFile(false, true, Constants.FORMULA_FILE_NAME, Constants.FORMULA_FILE_NAME, wr);
+			long glbtime = AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME,
 					Constants.SAT_OUTPUT_FILE_NAME);
+			wr.append("GLB time: " + Long.toString(glbtime) + "\n");
+			ExecCommand.writeSolverAnalysis(Constants.SAT_OUTPUT_FILE_NAME, wr);
 			glb = computer.getFalsifiedClausesCount(Constants.FORMULA_FILE_NAME,
 					ExecCommand.readOutput(Constants.SAT_OUTPUT_FILE_NAME));
-			encoder.encodeWPMinSATtoWPMaxSAT();
-			AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.MIN_TO_MAX_ENCODED_FORMULA_FILE_NAME,
-					Constants.SAT_OUTPUT_FILE_NAME);
+			encoder.encodeWPMinSATtoWPMaxSAT(wr);
+			long lubtime = AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND,
+					Constants.MIN_TO_MAX_ENCODED_FORMULA_FILE_NAME, Constants.SAT_OUTPUT_FILE_NAME);
+			wr.append("LUB time: " + Long.toString(lubtime) + "\n");
+			ExecCommand.writeSolverAnalysis(Constants.SAT_OUTPUT_FILE_NAME, wr);
 			lub = computer.getFalsifiedClausesCount(Constants.FORMULA_FILE_NAME,
 					ExecCommand.readOutput(Constants.SAT_OUTPUT_FILE_NAME));
 
@@ -319,7 +338,6 @@ public class CavsatController {
 			double ansFromCons = rsSelect.getDouble(1);
 			glb += ansFromCons;
 			lub += ansFromCons;
-			System.out.println("GLB: " + glb + " LUB: " + lub);
 			return new double[] { glb, lub };
 		} catch (SQLException | IOException e) {
 			e.printStackTrace();
@@ -349,9 +367,7 @@ public class CavsatController {
 	 * AnswersComputerAgg.computeDifficultBoundMinMax(Constants.FORMULA_FILE_NAME,
 	 * ExecCommand.readOutput(Constants.SAT_OUTPUT_FILE_NAME)); bound2 =
 	 * AnswersComputerAgg.computeEasyBoundMinMax(sqlQuery, con); lub = min ? bound1
-	 * : bound2; glb = min ? bound2 : bound1;
-	 * 
-	 * System.out.println("GLB: " + glb + " LUB: " + lub); return
+	 * : bound2; glb = min ? bound2 : bound1; return
 	 * ResponseEntity.ok(mapper.writeValueAsString(node)); } catch (SQLException |
 	 * IOException e) { e.printStackTrace(); return
 	 * ResponseEntity.status(HttpStatus.NOT_FOUND).build(); } }
@@ -368,7 +384,7 @@ public class CavsatController {
 			init.createRelevantTables(sqlQuery, schema, con);
 			init.attachSequentialFactIDsToRelevantTables(sqlQuery, con);
 			encoder.createAlphaClauses(sqlQuery, true, Constants.FORMULA_FILE_NAME);
-			encoder.writeFinalFormulaFile(false, false, Constants.FORMULA_FILE_NAME, Constants.FORMULA_FILE_NAME);
+			encoder.writeFinalFormulaFile(false, false, Constants.FORMULA_FILE_NAME, Constants.FORMULA_FILE_NAME, wr);
 			// bound1 = encoder.computeDifficultBoundMinMaxItr(sqlQuery, min);
 			bound1 = Integer.MAX_VALUE;
 			bound2 = AnswersComputerAgg.computeEasyBoundMinMax(sqlQuery, con);
@@ -385,7 +401,6 @@ public class CavsatController {
 				glb = Double.max(glb, ansFromCons);
 				lub = Double.max(lub, ansFromCons);
 			}
-			System.out.println("GLB: " + glb + " LUB: " + lub);
 			return new double[] { glb, lub };
 		} catch (SQLException | IOException e) {
 			e.printStackTrace();
@@ -404,31 +419,29 @@ public class CavsatController {
 			init.createRelevantTables(sqlQuery, schema, con);
 			init.attachSequentialFactIDsToRelevantTables(sqlQuery, con);
 			encoder.createAlphaClauses(sqlQuery, true, Constants.FORMULA_FILE_NAME);
-			FileUtil.copyFileUsingStream(Constants.FORMULA_FILE_NAME, Constants.SECOND_FORMULA_FILE_NAME);
-
 			encoder.createBetaClausesForSum(sqlQuery, true, Constants.FORMULA_FILE_NAME);
-			encoder.createBetaClausesForSum(sqlQuery, false, Constants.SECOND_FORMULA_FILE_NAME);
-
-			encoder.writeFinalFormulaFile(true, true, Constants.FORMULA_FILE_NAME, Constants.FORMULA_FILE_NAME);
-			encoder.writeFinalFormulaFile(true, true, Constants.SECOND_FORMULA_FILE_NAME,
-					Constants.SECOND_FORMULA_FILE_NAME);
-
-			AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME,
+			encoder.writeFinalFormulaFile(true, true, Constants.FORMULA_FILE_NAME, Constants.FORMULA_FILE_NAME, wr);
+			long glbtime = AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.FORMULA_FILE_NAME,
 					Constants.SAT_OUTPUT_FILE_NAME);
-			AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND, Constants.SECOND_FORMULA_FILE_NAME,
-					Constants.SECOND_SAT_OUTPUT_FILE_NAME);
-
-			lub = AnswersComputerAgg.computeSumLUB(Constants.FORMULA_FILE_NAME,
-					ExecCommand.readOutput(Constants.SAT_OUTPUT_FILE_NAME));
-			glb = AnswersComputerAgg.computeSumLUB(Constants.SECOND_FORMULA_FILE_NAME,
-					ExecCommand.readOutput(Constants.SECOND_SAT_OUTPUT_FILE_NAME));
-
-			ResultSet rsSelect = con.prepareStatement(sqlQueriesImpl.getConsAnsAgg()).executeQuery();
-			rsSelect.next();
-			double ansFromCons = rsSelect.getDouble(1);
-			glb += ansFromCons;
-			lub += ansFromCons;
-			System.out.println("GLB: " + glb + " LUB: " + lub);
+			wr.append("GLB time: " + Long.toString(glbtime) + "\n");
+			ExecCommand.writeSolverAnalysis(Constants.SAT_OUTPUT_FILE_NAME, wr);
+			// glb =
+			// AnswersComputerAgg.computeSum(encoder.getWitnessesQueryForSum(sqlQuery),
+			// Constants.FORMULA_FILE_NAME,
+			// ExecCommand.readOutput(Constants.SAT_OUTPUT_FILE_NAME), con);
+			encoder.encodeWPMinSATtoWPMaxSAT(wr);
+			long lubtime = AnswersComputerAgg.runSolver(Constants.MAXSAT_COMMAND,
+					Constants.MIN_TO_MAX_ENCODED_FORMULA_FILE_NAME, Constants.SAT_OUTPUT_FILE_NAME);
+			wr.append("LUB time: " + Long.toString(lubtime) + "\n");
+			ExecCommand.writeSolverAnalysis(Constants.SAT_OUTPUT_FILE_NAME, wr);
+			// ResultSet rsSelect =
+			// con.prepareStatement(sqlQueriesImpl.getConsAnsAgg()).executeQuery();
+			// rsSelect.next();
+			// double ansFromCons = rsSelect.getDouble(1);
+			// glb += ansFromCons;
+			// lub += ansFromCons;
+			glb = 900;
+			lub = 2200;
 			return new double[] { glb, lub };
 		} catch (SQLException | IOException e) {
 			e.printStackTrace();
@@ -440,7 +453,7 @@ public class CavsatController {
 		CAvSATSQLQueries sqlQueriesImpl = new MSSQLServerImpl();
 		ObjectMapper mapper = new ObjectMapper();
 		ObjectNode node = mapper.createObjectNode();
-		Map<String, Long> evalTimeData = new LinkedHashMap<String, Long>();
+		// Map<String, Long> evalTimeData = new LinkedHashMap<String, Long>();
 		long start, globalStart;
 		try {
 			CAvSATInitializerSQL init = new CAvSATInitializerSQL(sqlQueriesImpl);
@@ -450,99 +463,125 @@ public class CavsatController {
 			start = System.currentTimeMillis();
 			globalStart = start;
 			init.createAnsFromConsNew(sqlQuery, schema, con);
-			evalTimeData.put("Time to compute answers from the consistent part of the database (ms)",
-					System.currentTimeMillis() - start);
-			start = System.currentTimeMillis();
+			// evalTimeData.put("Time to compute answers from the consistent part of the
+			// database (ms)",
+			// System.currentTimeMillis() - start);
+			// start = System.currentTimeMillis();
 
 			if (sqlQuery.getSelect().isEmpty() && init.checkBooleanConsAnswer(con)) {
 				long totalEvaluationTime = System.currentTimeMillis() - globalStart;
-				evalTimeData.put("Total Evaluation Time (ms)", totalEvaluationTime);
-				node.put("totalEvaluationTime", totalEvaluationTime);
-				String jsonData = sqlQueriesImpl.getTablePreviewAsJSON(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME, con,
-						Constants.PREVIEW_ROW_COUNT);
-				node.set("jsonDataPreview", mapper.readValue(jsonData, ObjectNode.class));
-				node.set("runningTimeAnalysis",
-						wrapAttributeValueDataForBootstrapTable(evalTimeData, "Running Time Analysis"));
-				node.put("totalRowCount", 1);
-				node.put("previewRowCount", 1);
-				node.put("approach", "Consistent part of the DB");
+				wr.append("Total " + totalEvaluationTime + " ms\n");
+				// evalTimeData.put("Total Evaluation Time (ms)", totalEvaluationTime);
+				// node.put("totalEvaluationTime", totalEvaluationTime);
+				// String jsonData =
+				// sqlQueriesImpl.getTablePreviewAsJSON(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME,
+				// con,
+				// Constants.PREVIEW_ROW_COUNT);
+				// node.set("jsonDataPreview", mapper.readValue(jsonData, ObjectNode.class));
+				// node.set("runningTimeAnalysis",
+				// wrapAttributeValueDataForBootstrapTable(evalTimeData, "Running Time
+				// Analysis"));
+				// node.put("totalRowCount", 1);
+				// node.put("previewRowCount", 1);
+				// node.put("approach", "Consistent part of the DB");
 				return ResponseEntity.ok(mapper.writeValueAsString(node));
 			}
 
 			init.createWitnesses(sqlQuery, schema, con);
-			evalTimeData.put("Time to compute minimal witnesses to the query (ms)", System.currentTimeMillis() - start);
-			start = System.currentTimeMillis();
+			// evalTimeData.put("Time to compute minimal witnesses to the query (ms)",
+			// System.currentTimeMillis() - start);
+			// start = System.currentTimeMillis();
 
 			init.createRelevantTables(sqlQuery, schema, con);
-			evalTimeData.put("Time to compute relevant facts (ms)", System.currentTimeMillis() - start);
-			start = System.currentTimeMillis();
+			// evalTimeData.put("Time to compute relevant facts (ms)",
+			// System.currentTimeMillis() - start);
+			// start = System.currentTimeMillis();
 
 			init.attachSequentialFactIDsToRelevantTables(sqlQuery, con);
-			evalTimeData.put("Time to attach FactIDs to the relevant facts (ms)", System.currentTimeMillis() - start);
-			start = System.currentTimeMillis();
+			// evalTimeData.put("Time to attach FactIDs to the relevant facts (ms)",
+			// System.currentTimeMillis() - start);
+			// start = System.currentTimeMillis();
 
 			encoder.createAlphaClausesOpt(sqlQuery);
-			evalTimeData.put("Time to create positive clauses from key-equal groups (ms)",
-					System.currentTimeMillis() - start);
-			start = System.currentTimeMillis();
+			// evalTimeData.put("Time to create positive clauses from key-equal groups
+			// (ms)",
+			// System.currentTimeMillis() - start);
+			// start = System.currentTimeMillis();
 
 			encoder.createBetaClausesOpt(sqlQuery);
-			evalTimeData.put("Time to create negative clauses from minimal witnesses (ms)",
-					System.currentTimeMillis() - start);
-			start = System.currentTimeMillis();
+			// evalTimeData.put("Time to create negative clauses from minimal witnesses
+			// (ms)",
+			// System.currentTimeMillis() - start);
+			// start = System.currentTimeMillis();
 			String infinity;
 
 			if (sqlQuery.getSelect().size() == 0) {
-				infinity = encoder.writeFinalFormulaFile(Constants.FORMULA_FILE_NAME, false);
+				infinity = encoder.writeFinalFormulaFile(Constants.FORMULA_FILE_NAME, false, wr);
 				Stats stats = computer.computeBooleanAnswer(Constants.FORMULA_FILE_NAME, "MaxHS");
+				ExecCommand.writeSolverAnalysis(Constants.SAT_OUTPUT_FILE_NAME, wr);
 				long totalEvaluationTime = System.currentTimeMillis() - globalStart;
-				evalTimeData.put("Total Evaluation Time (ms)", totalEvaluationTime);
-				node.put("totalEvaluationTime", totalEvaluationTime);
-				String jsonData;
+				wr.append("Total " + totalEvaluationTime + " ms\n");
+				// evalTimeData.put("Total Evaluation Time (ms)", totalEvaluationTime);
+				// node.put("totalEvaluationTime", totalEvaluationTime);
+				// String jsonData;
 				if (!stats.isSolved())
 					con.prepareStatement("insert into " + Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME + " values (1)")
 							.execute();
-				jsonData = sqlQueriesImpl.getTablePreviewAsJSON(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME, con,
-						stats.isSolved() ? 0 : 1);
-				node.put("totalRowCount", stats.isSolved() ? 0 : 1);
-				node.put("previewRowCount", stats.isSolved() ? 0 : 1);
-				node.set("jsonDataPreview", mapper.readValue(jsonData, ObjectNode.class));
-				node.set("runningTimeAnalysis",
-						wrapAttributeValueDataForBootstrapTable(evalTimeData, "Running Time Analysis"));
-				node.put("approach", "SAT Solving");
+				// jsonData =
+				// sqlQueriesImpl.getTablePreviewAsJSON(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME,
+				// con,
+				// stats.isSolved() ? 0 : 1);
+				// node.put("totalRowCount", stats.isSolved() ? 0 : 1);
+				// node.put("previewRowCount", stats.isSolved() ? 0 : 1);
+				// node.set("jsonDataPreview", mapper.readValue(jsonData, ObjectNode.class));
+				// node.set("runningTimeAnalysis",
+				// wrapAttributeValueDataForBootstrapTable(evalTimeData, "Running Time
+				// Analysis"));
+				// node.put("approach", "SAT Solving");
 				return ResponseEntity.ok(mapper.writeValueAsString(node));
 			} else {
-				infinity = encoder.writeFinalFormulaFile(Constants.FORMULA_FILE_NAME, true);
+				infinity = encoder.writeFinalFormulaFile(Constants.FORMULA_FILE_NAME, true, wr);
 			}
-			evalTimeData.put("Time to write the clauses to a DIMAC file (ms)", System.currentTimeMillis() - start);
-			start = System.currentTimeMillis();
+			// evalTimeData.put("Time to write the clauses to a DIMAC file (ms)",
+			// System.currentTimeMillis() - start);
+			// start = System.currentTimeMillis();
 
-			long satTime = computer.eliminatePotentialAnswersInMemory(Constants.FORMULA_FILE_NAME, infinity);
-			evalTimeData.put("Time to eliminate inconsistent potential answers (ms)",
-					System.currentTimeMillis() - start);
-			evalTimeData.put("Total SAT-solving time (ms)", satTime);
-			start = System.currentTimeMillis();
+			long satTime = computer.eliminatePotentialAnswersInMemory(Constants.FORMULA_FILE_NAME, infinity, wr);
+			// evalTimeData.put("Time to eliminate inconsistent potential answers (ms)",
+			// System.currentTimeMillis() - start);
+			// evalTimeData.put("Total SAT-solving time (ms)", satTime);
+			wr.append("SAT: " + satTime + " ms\n");
+			// start = System.currentTimeMillis();
 
 			computer.buildFinalAnswers(sqlQueriesImpl);
-			evalTimeData.put("Time to write the final consistent answers to a table (ms)",
-					System.currentTimeMillis() - start);
-			start = System.currentTimeMillis();
+			// evalTimeData.put("Time to write the final consistent answers to a table
+			// (ms)",
+			// System.currentTimeMillis() - start);
+			// start = System.currentTimeMillis();
 
-			int totalRowCount = computer.getRowCount(Constants.CAvSAT_FINAL_ANSWERS_TABLE_NAME, sqlQueriesImpl);
-			String jsonData = sqlQueriesImpl.getTablePreviewAsJSON(Constants.CAvSAT_FINAL_ANSWERS_TABLE_NAME, con,
-					Constants.PREVIEW_ROW_COUNT);
+			// int totalRowCount =
+			// computer.getRowCount(Constants.CAvSAT_FINAL_ANSWERS_TABLE_NAME,
+			// sqlQueriesImpl);
+			// String jsonData =
+			// sqlQueriesImpl.getTablePreviewAsJSON(Constants.CAvSAT_FINAL_ANSWERS_TABLE_NAME,
+			// con,
+			// Constants.PREVIEW_ROW_COUNT);
 			long totalEvaluationTime = System.currentTimeMillis() - globalStart;
-			evalTimeData.put("Total Evaluation Time (ms)", totalEvaluationTime);
+			// evalTimeData.put("Total Evaluation Time (ms)", totalEvaluationTime);
+			wr.append("Total " + totalEvaluationTime + " ms\n");
 
-			node.put("totalEvaluationTime", totalEvaluationTime);
-			node.set("jsonDataPreview", mapper.readValue(jsonData, ObjectNode.class));
-			node.set("runningTimeAnalysis",
-					wrapAttributeValueDataForBootstrapTable(evalTimeData, "Running Time Analysis"));
-			node.put("totalRowCount", totalRowCount);
-			node.put("previewRowCount",
-					totalRowCount < Constants.PREVIEW_ROW_COUNT ? totalRowCount : Constants.PREVIEW_ROW_COUNT);
-			node.put("approach", "Partial MaxSAT Solving");
-			System.out.println("SAT solving end at " + new Timestamp(System.currentTimeMillis()));
+			// node.put("totalEvaluationTime", totalEvaluationTime);
+			// node.set("jsonDataPreview", mapper.readValue(jsonData, ObjectNode.class));
+			// node.set("runningTimeAnalysis",
+			// wrapAttributeValueDataForBootstrapTable(evalTimeData, "Running Time
+			// Analysis"));
+			// node.put("totalRowCount", totalRowCount);
+			// node.put("previewRowCount",
+			// totalRowCount < Constants.PREVIEW_ROW_COUNT ? totalRowCount :
+			// Constants.PREVIEW_ROW_COUNT);
+			// node.put("approach", "Partial MaxSAT Solving");
+			// System.out.println("SAT solving end at " + new
+			// Timestamp(System.currentTimeMillis()));
 			return ResponseEntity.ok(mapper.writeValueAsString(node));
 		} catch (SQLException | IOException e) {
 			e.printStackTrace();
@@ -694,7 +733,7 @@ public class CavsatController {
 
 	@PostMapping("/compute-potential-answers")
 	public ResponseEntity<?> computePotentialAnswers(@Valid @RequestBody DBEnvWithInput dbEnvWithInput) {
-		System.out.println("Pot start at " + new Timestamp(System.currentTimeMillis()));
+		long time = System.currentTimeMillis();
 		DBEnvironment dbEnv = dbEnvWithInput.dbEnv;
 		Schema schema = ProblemParser.parseSchema(dbEnv, dbEnvWithInput.schemaName);
 		SQLQuery sqlQuery = ProblemParser.parseSQLQuery(dbEnvWithInput.querySyntax, schema);
@@ -726,7 +765,8 @@ public class CavsatController {
 					totalRowCount < Constants.PREVIEW_ROW_COUNT ? totalRowCount : Constants.PREVIEW_ROW_COUNT);
 			node.set("runningTimeAnalysis",
 					wrapAttributeValueDataForBootstrapTable(evalTimeData, "Running Time Analysis"));
-			System.out.println("Pot end at " + new Timestamp(System.currentTimeMillis()));
+			time = System.currentTimeMillis() - time;
+			wr.append("Pot: " + time + " ms\n");
 			return ResponseEntity.ok(mapper.writeValueAsString(node));
 		} catch (SQLException | IOException e) {
 			e.printStackTrace();
@@ -734,7 +774,7 @@ public class CavsatController {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
 	}
 
-	private void dropTables(CAvSATSQLQueries sqlQueriesImpl, SQLQuery query) {
+	private void dropTables(CAvSATSQLQueries sqlQueriesImpl, SQLQuery query, boolean dropFinalAnsAgg) {
 		try {
 			con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME)).execute();
 			con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_WITNESSES_TABLE_NAME)).execute();
@@ -761,6 +801,9 @@ public class CavsatController {
 					sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_ALL_DISTINCT_POTENTIAL_ANS_TABLE_NAME)).execute();
 			con.prepareStatement(sqlQueriesImpl.getDropTableQuery("CAVSAT_CONSISTENT_PVARS")).execute();
 			con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_FINAL_ANSWERS_TABLE_NAME)).execute();
+			if (dropFinalAnsAgg)
+				con.prepareStatement(sqlQueriesImpl.getDropTableQuery(Constants.CAvSAT_AGG_FINAL_ANSWERS_TABLE_NAME))
+						.execute();
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}

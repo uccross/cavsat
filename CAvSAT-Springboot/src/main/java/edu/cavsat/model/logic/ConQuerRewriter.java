@@ -221,13 +221,6 @@ public class ConQuerRewriter {
 			if (isRoot) // i is really a root
 				roots.add(i);
 		}
-		System.out.println("Join graph: ");
-		for (short i = 0; i < joinGraph.length; i++) {
-			for (short j = 0; j < joinGraph.length; j++) {
-				System.out.print(joinGraph[i][j] + " ");
-			}
-			System.out.println();
-		}
 		StringBuilder rjoins = new StringBuilder(relationNames.get(roots.get(0)));
 		List<String> iJoins = new ArrayList<String>();
 		for (int i = 1; i < roots.size(); i++) {

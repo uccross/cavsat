@@ -31,10 +31,13 @@ public class CAvSATInitializerAggSQL {
 	private CAvSATSQLQueries sqlQueriesImpl;
 
 	public void attachSequentialFactIDsToRelevantTables(SQLQuery query, Connection con) throws SQLException {
+		attachSequentialFactIDs(query.getFrom().stream().map(a -> Constants.CAvSAT_RELEVANT_TABLE_PREFIX + a)
+				.collect(Collectors.toList()), con);
+	}
+
+	public void attachSequentialFactIDs(List<String> relations, Connection con) throws SQLException {
 		int startFactID = 1;
-		String relationName = null;
-		for (String relationNameWithoutPrefix : query.getFrom()) {
-			relationName = Constants.CAvSAT_RELEVANT_TABLE_PREFIX + relationNameWithoutPrefix;
+		for (String relationName : relations) {
 			PreparedStatement attachFactID = con
 					.prepareStatement(sqlQueriesImpl.getAttachFactIDQuery(relationName, startFactID));
 			attachFactID.execute();
@@ -49,7 +52,7 @@ public class CAvSATInitializerAggSQL {
 		SQLQuery ansFromConsQuery = new SQLQuery(query);
 		List<String> aggAttributes = new ArrayList<String>();
 		List<String> selectAttributes = new ArrayList<String>();
-
+		List<String> newAggAttributes = new ArrayList<String>();
 		ansFromConsQuery.setFrom(query.getFrom().stream()
 				.map(relationName -> Constants.CAvSAT_CONS_TABLE_PREFIX + relationName).collect(Collectors.toList()));
 
@@ -58,9 +61,23 @@ public class CAvSATInitializerAggSQL {
 				aggAttributes.add("*");
 			else if (aggAttribute.toLowerCase().startsWith("distinct "))
 				aggAttributes.add("distinct " + Constants.CAvSAT_CONS_TABLE_PREFIX + aggAttribute.split(" ")[1]);
-			else
-				aggAttributes.add(Constants.CAvSAT_CONS_TABLE_PREFIX + aggAttribute);
+			else {
+				// Fails if one relationName ends with another relationName, e.g., relations acc
+				// and custacc
+				for (String relationName : query.getFrom())
+					aggAttribute = aggAttribute.replaceAll(relationName + ".",
+							Constants.CAvSAT_CONS_TABLE_PREFIX + relationName + ".");
+				newAggAttributes.add(aggAttribute);
+				/*
+				 * for (String relationName : query.getFrom()) { if
+				 * (aggAttribute.contains(relationName + ".")) {
+				 * aggAttributes.add(aggAttribute.replaceAll(relationName + "\\.",
+				 * Constants.CAvSAT_CONS_TABLE_PREFIX + relationName + ".")); } }
+				 */
+				// aggAttributes.add(Constants.CAvSAT_CONS_TABLE_PREFIX + aggAttribute);
+			}
 		}
+		aggAttributes.addAll(newAggAttributes);
 		ansFromConsQuery.setAggAttributes(aggAttributes);
 
 		int i = 0;
@@ -89,8 +106,6 @@ public class CAvSATInitializerAggSQL {
 			ansFromConsQuery.getSelect().add("1 AS " + Constants.BOOL_CONS_ANSWER_COLUMN_NAME);
 		ansFromConsQuery.setWhereConditions(newConditions);
 		ansFromConsQuery.setSelectDistinct(true);
-		System.out.println("Answers from consistent part of the data:\n"
-				+ ansFromConsQuery.getSQLSyntax(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME) + "\n");
 		con.prepareStatement(ansFromConsQuery.getSQLSyntax(Constants.CAvSAT_ANS_FROM_CONS_TABLE_NAME)).execute();
 	}
 
@@ -122,15 +137,12 @@ public class CAvSATInitializerAggSQL {
 			newConditions.add(newCondition);
 		}
 		q2.setWhereConditions(newConditions);
-		System.out.println("Creating witnesses:\n" + q1.getSQLSyntax(Constants.CAvSAT_WITNESSES_TABLE_NAME) + " EXCEPT "
-				+ q2.getSQLSyntax());
 		con.prepareStatement(q1.getSQLSyntax(Constants.CAvSAT_WITNESSES_TABLE_NAME) + " EXCEPT " + q2.getSQLSyntax())
 				.execute();
 	}
 
 	public void createRelevantTables(SQLQuery query, Schema schema, Connection con) throws SQLException {
 		Set<String> whereConditions = new HashSet<String>();
-		System.out.println("Creating relevant tables:");
 		for (String relationName : query.getFrom()) {
 			whereConditions.clear();
 			Relation r = schema.getRelationByName(relationName);
@@ -140,7 +152,6 @@ public class CAvSATInitializerAggSQL {
 					.collect(Collectors.joining(" AND ")));
 			String createRelevantViewQuery = sqlQueriesImpl.getCreateRelevantTablesQuery(
 					relationName + "," + Constants.CAvSAT_WITNESSES_TABLE_NAME, whereConditions, r.getName());
-			System.out.println(createRelevantViewQuery + "\n");
 			con.prepareStatement(createRelevantViewQuery).execute();
 		}
 	}
